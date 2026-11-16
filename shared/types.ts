@@ -95,7 +95,9 @@ export type OptimizationId =
   | 'power-plan-high'
   | 'background-recording-off'
   | 'close-background-apps'
-  | 'clean-temp-files';
+  | 'clean-temp-files'
+  | 'fortnite-max-fps'
+  | 'windowed-optimizations-on';
 
 export interface Recommendation {
   id: string;

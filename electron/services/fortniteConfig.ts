@@ -79,8 +79,77 @@ export function analyzeFortniteConfig(text: string, path: string): FortniteConfi
   add('bRayTracing', 'Ray Tracing', bool(rt), 'Off', rt !== null && !/^true$/i.test(rt), 'Very heavy for an RTX 5060 at high FPS targets.');
 
   const notes = [
-    'TWECD only reads this file. Change settings inside Fortnite (Settings > Video) so the game stays in control of its own files.',
-    'In Fortnite: enable NVIDIA Reflex "On + Boost" for lower latency.',
+    'Use "Apply Max FPS settings" to set these automatically (Fortnite must be closed). Your original file is backed up and can be restored.',
+    'In Fortnite: enable NVIDIA Reflex "On + Boost" for lower latency (not stored in this file).',
   ];
   return { found: true, path, settings: s, notes };
+}
+
+// ---------- Max-FPS profile (written only with user confirmation, original is backed up) ----------
+const GUS = '/Script/FortniteGame.FortGameUserSettings';
+type Target = { section: string; key: string; value: string; label: string; onlyIfAbove?: number };
+
+/** Profile for the highest stable FPS on RTX 5060 8GB + i5-14600K. */
+export const MAX_FPS_PROFILE: Target[] = [
+  { section: 'D3DRHIPreference', key: 'PreferredRHI', value: 'dx11', label: 'Rendering Mode: Performance' },
+  { section: 'D3DRHIPreference', key: 'PreferredFeatureLevel', value: 'es31', label: 'Rendering Mode: Performance' },
+  { section: GUS, key: 'FrameRateLimit', value: '0.000000', label: 'Frame Rate Limit: Unlimited' },
+  { section: GUS, key: 'bUseVSync', value: 'False', label: 'VSync: Off' },
+  { section: GUS, key: 'FullscreenMode', value: '0', label: 'Window Mode: Fullscreen' },
+  { section: GUS, key: 'LastConfirmedFullscreenMode', value: '0', label: 'Window Mode: Fullscreen' },
+  { section: GUS, key: 'PreferredFullscreenMode', value: '0', label: 'Window Mode: Fullscreen' },
+  { section: GUS, key: 'bMotionBlur', value: 'False', label: 'Motion Blur: Off' },
+  { section: GUS, key: 'bRayTracing', value: 'False', label: 'Ray Tracing: Off' },
+  { section: 'ScalabilityGroups', key: 'sg.ResolutionQuality', value: '100.000000', label: '3D Resolution: 100%' },
+  { section: 'ScalabilityGroups', key: 'sg.ViewDistanceQuality', value: '2', label: 'View Distance: Far or lower', onlyIfAbove: 2 },
+  { section: 'ScalabilityGroups', key: 'sg.TextureQuality', value: '1', label: 'Textures: Medium or lower', onlyIfAbove: 2 },
+  { section: 'ScalabilityGroups', key: 'sg.ShadowQuality', value: '0', label: 'Shadows: Off' },
+  { section: 'ScalabilityGroups', key: 'sg.GlobalIlluminationQuality', value: '0', label: 'Global Illumination: Low' },
+  { section: 'ScalabilityGroups', key: 'sg.ReflectionQuality', value: '0', label: 'Reflections: Low' },
+  { section: 'ScalabilityGroups', key: 'sg.PostProcessQuality', value: '0', label: 'Post Processing: Low' },
+  { section: 'ScalabilityGroups', key: 'sg.EffectsQuality', value: '0', label: 'Effects: Low' },
+  { section: 'ScalabilityGroups', key: 'sg.FoliageQuality', value: '0', label: 'Foliage: Low' },
+  { section: 'ScalabilityGroups', key: 'sg.AntiAliasingQuality', value: '0', label: 'Anti-Aliasing: Off' },
+  { section: 'ScalabilityGroups', key: 'sg.ShadingQuality', value: '0', label: 'Shading: Low' },
+];
+
+/**
+ * Applies MAX_FPS_PROFILE to an ini text. Only touches listed keys, keeps every other line,
+ * comment, order and line ending. Missing keys are added to their section (section created if absent).
+ */
+export function applyMaxFps(text: string): { text: string; changed: string[] } {
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(/\r?\n/);
+  const changed = new Set<string>();
+  const sectionOf: string[] = [];
+  let cur = '';
+  for (const l of lines) { const m = l.trim().match(/^\[(.+)\]$/); if (m) cur = m[1]; sectionOf.push(cur); }
+
+  for (const t of MAX_FPS_PROFILE) {
+    const idx = lines.findIndex((l, i) => sectionOf[i] === t.section && l.trim().toLowerCase().startsWith(t.key.toLowerCase() + '='));
+    if (idx >= 0) {
+      const curVal = lines[idx].slice(lines[idx].indexOf('=') + 1).trim();
+      if (t.onlyIfAbove !== undefined && parseFloat(curVal) <= t.onlyIfAbove) continue;
+      if (curVal.toLowerCase() === t.value.toLowerCase()) continue;
+      lines[idx] = `${t.key}=${t.value}`;
+      changed.add(t.label);
+      continue;
+    }
+    // Key absent: optional keys (only-if-above, ray tracing, fullscreen bookkeeping) are left alone.
+    if (t.onlyIfAbove !== undefined || t.key === 'bRayTracing' || t.key.endsWith('FullscreenMode') && t.key !== 'FullscreenMode') continue;
+    let secIdx = lines.findIndex((l) => l.trim() === `[${t.section}]`);
+    if (secIdx < 0) {
+      while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+      lines.push('', `[${t.section}]`);
+      sectionOf.push('', t.section);
+      secIdx = lines.length - 1;
+    }
+    let end = secIdx + 1;
+    while (end < lines.length && !/^\s*\[/.test(lines[end])) end++;
+    while (end > secIdx + 1 && lines[end - 1].trim() === '') end--;
+    lines.splice(end, 0, `${t.key}=${t.value}`);
+    sectionOf.splice(end, 0, t.section);
+    changed.add(t.label);
+  }
+  return { text: lines.join(eol), changed: [...changed] };
 }

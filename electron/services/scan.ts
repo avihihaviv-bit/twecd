@@ -6,7 +6,7 @@ import type { MonitorHub } from './monitor';
 import { pingSeries, getNetContext } from './network';
 import { diagnose } from './ping';
 import { friendlyName } from './processCatalog';
-import { getBackgroundRecording, getGameMode, getHags, listPowerSchemes, listProcesses, listStartupApps, scanTemp, HIGH_PERF, ULTIMATE } from './windows';
+import { getBackgroundRecording, getGameMode, getHags, listPowerSchemes, listProcesses, listStartupApps, scanTemp, regQuery, dxFlagOn, DX_GLOBAL, DX_PREFS_KEY, HIGH_PERF, ULTIMATE } from './windows';
 
 const LABELS: Record<ScanStepId, string> = {
   cpu: 'Scan CPU', gpu: 'Scan GPU', vram: 'Scan VRAM', ram: 'Scan RAM', processes: 'Scan running processes',
@@ -100,7 +100,7 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
       const r = readFortniteConfig();
       if (!r.found) return ['unavailable', 'Fortnite settings file not found'];
       const bad = r.settings.filter((s) => s.ok === false);
-      if (bad.length) recs.push({ id: 'rec-fn', optimizationId: null, area: 'Fortnite', title: `Adjust ${bad.length} Fortnite setting${bad.length > 1 ? 's' : ''} (in-game)`, why: 'These settings cost FPS or add latency on an RTX 5060 + i5-14600K. TWECD never edits game files; change them in Fortnite > Settings > Video.', change: bad.map((s) => `${s.label}: ${s.current} -> ${s.recommended}`).join(' | '), impact: 'high', reversible: true, selectedByDefault: false });
+      if (bad.length) recs.push({ id: 'rec-fn', optimizationId: 'fortnite-max-fps', area: 'Fortnite', title: `Apply Max FPS settings to Fortnite (${bad.length} change${bad.length > 1 ? 's' : ''})`, why: 'The biggest FPS gain available: Performance rendering mode, unlimited frame rate, VSync off and heavy effects off. On an RTX 5060 + i5-14600K this commonly raises FPS far more than any Windows tweak. Fortnite must be closed while applying.', change: `Edits only Fortnite's settings file (GameUserSettings.ini), never the game or anti-cheat. ${bad.map((s) => `${s.label}: ${s.current} -> ${s.recommended}`).join(' | ')}. Your original file is backed up; Restore Defaults puts it back.`, impact: 'high', reversible: true, selectedByDefault: true });
       return ['done', bad.length ? `${bad.length} settings could be faster` : 'Settings already tuned for FPS'];
     });
 
@@ -111,6 +111,8 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
       const rec = await getBackgroundRecording();
       if (gm.enabled === false) recs.push({ id: 'rec-gm', optimizationId: 'game-mode-on', area: 'Windows', title: 'Turn on Game Mode', why: 'Game Mode tells Windows to prioritize the game and pause Windows Update installs and notifications while you play.', change: 'Sets Settings > Gaming > Game Mode to On (HKCU GameBar\\AutoGameModeEnabled = 1).', impact: 'medium', reversible: true, selectedByDefault: true });
       if (rec.enabled) recs.push({ id: 'rec-dvr', optimizationId: 'background-recording-off', area: 'Windows', title: 'Turn off background recording', why: '"Record what happened" continuously encodes gameplay in the background, which costs GPU time and can cause hitches.', change: 'Sets Settings > Gaming > Captures > Record what happened to Off. Manual recording still works.', impact: 'medium', reversible: true, selectedByDefault: true });
+      const dx = (await regQuery(DX_PREFS_KEY, DX_GLOBAL))?.data ?? null;
+      if (!dxFlagOn(dx, 'SwapEffectUpgradeEnable')) recs.push({ id: 'rec-dx', optimizationId: 'windowed-optimizations-on', area: 'Windows', title: 'Turn on optimizations for windowed games', why: 'Windows 11 feature that lowers latency and can raise FPS for games in borderless/windowed mode.', change: 'Sets Settings > System > Display > Graphics > Optimizations for windowed games to On.', impact: 'low', reversible: true, selectedByDefault: true });
       const hags = await getHags();
       if (hags === false) f({ id: 'hags', area: 'Windows', severity: 'info', title: 'Hardware-accelerated GPU scheduling is off', detail: 'Required for NVIDIA DLSS Frame Generation and can reduce latency. Turn on in Settings > System > Display > Graphics (needs restart).' });
       return ['done', `Game Mode ${gm.enabled ? 'on' : 'off'}, background recording ${rec.enabled ? 'on' : 'off'}`];
@@ -122,8 +124,8 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
       const schemes = await listPowerSchemes();
       const active = schemes.find((s) => s.active);
       const perf = schemes.find((s) => s.guid === ULTIMATE || s.guid === HIGH_PERF);
-      if (perf && active && active.guid !== perf.guid) recs.push({ id: 'rec-power', optimizationId: 'power-plan-high', area: 'Power', title: `Use the ${perf.name} power plan`, why: 'Keeps CPU cores ready at high clocks instead of parking them, which reduces frame-time spikes. Uses a bit more power at idle.', change: `Switches the active power plan from "${active.name}" to "${perf.name}". Restore Defaults switches it back.`, impact: 'medium', reversible: true, selectedByDefault: true });
-      else if (!perf) f({ id: 'power-bal', area: 'Power', severity: 'info', title: `Power plan: ${active?.name ?? 'unknown'}`, detail: 'No High Performance plan is installed. Set Settings > System > Power > Power mode to "Best performance".' });
+      const perfByName = perf ?? schemes.find((s) => /ultimate|high performance/i.test(s.name));
+      if (active && (!perfByName || active.guid !== perfByName.guid)) recs.push({ id: 'rec-power', optimizationId: 'power-plan-high', area: 'Power', title: perfByName ? `Use the ${perfByName.name} power plan` : 'Create and use the Ultimate Performance power plan', why: 'Keeps the i5-14600K cores awake at high clocks instead of parking them, which reduces frame-time spikes and raises 1% lows. Uses a bit more power at idle.', change: perfByName ? `Switches the active power plan from "${active.name}" to "${perfByName.name}". Restore Defaults switches it back.` : `Creates Windows' built-in Ultimate Performance plan and switches to it from "${active.name}". Restore Defaults switches back and removes it.`, impact: 'medium', reversible: true, selectedByDefault: true });
       const t = scanTemp(false);
       if (t.bytes > 200 * 1048576) recs.push({ id: 'rec-temp', optimizationId: 'clean-temp-files', area: 'Storage', title: `Clean ${(t.bytes / 1048576).toFixed(0)} MB of old temporary files`, why: 'Frees disk space. This does not raise FPS by itself; it is housekeeping.', change: `Deletes ${t.files} files in your user TEMP folder that were not modified for 24+ hours. Files in use are skipped. This cannot be undone.`, impact: 'low', reversible: false, selectedByDefault: false });
       return ['done', `Active plan: ${active?.name ?? 'unknown'}`];

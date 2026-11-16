@@ -37,7 +37,6 @@ let busy = { scan: false, net: false, bench: false };
 const ud = () => app.getPath('userData');
 const settingsStore = new JsonStore<Settings>(ud(), 'settings.json', DEFAULT_SETTINGS);
 const benchStore = new JsonStore<{ results: BenchmarkResult[] }>(ud(), 'benchmarks.json', { results: [] });
-const optimizer = new Optimizer(new JsonStore<Backup>(ud(), 'backup.json', { createdAt: 0 }), new JsonStore<{ entries: ChangeLogEntry[] }>(ud(), 'changelog.json', { entries: [] }));
 let settings = settingsStore.read();
 
 const pmPath = () => PresentMonCapture.resolve(settings.presentMonPath, process.resourcesPath ?? '');
@@ -48,6 +47,12 @@ const hub = new MonitorHub({
   presentMonPath: pmPath,
   emit: (m) => win?.webContents.send(IPC.metrics, m),
 });
+const optimizer = new Optimizer(
+  new JsonStore<Backup>(ud(), 'backup.json', { createdAt: 0 }),
+  new JsonStore<{ entries: ChangeLogEntry[] }>(ud(), 'changelog.json', { entries: [] }),
+  path.join(ud(), 'fortnite-backup'),
+  () => hub.latest?.fortnite.running ?? false,
+);
 
 function trusted(e: IpcMainInvokeEvent): boolean {
   const url = e.senderFrame?.url ?? '';

@@ -170,3 +170,33 @@ export async function wifiSignal(): Promise<number | null> {
   const m = r.stdout.match(/:\s*(\d{1,3})\s*%/);
   return m ? Math.min(100, +m[1]) : null;
 }
+
+export async function regSetString(key: string, value: string, data: string): Promise<boolean> {
+  if (!isWin || !key.startsWith('HKCU\\')) return false;
+  return (await run('reg', ['add', key, '/v', value, '/t', 'REG_SZ', '/d', data, '/f'])).code === 0;
+}
+
+/** Creates a copy of the built-in Ultimate Performance plan (desktops). Returns the new plan's GUID. */
+export async function createUltimatePlan(): Promise<string | null> {
+  if (!isWin) return null;
+  const r = await run('powercfg', ['-duplicatescheme', ULTIMATE]);
+  const m = r.stdout.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  return r.code === 0 && m ? m[1].toLowerCase() : null;
+}
+
+export async function deletePowerScheme(guid: string): Promise<boolean> {
+  if (!isWin || !/^[0-9a-f-]{36}$/i.test(guid)) return false;
+  return (await run('powercfg', ['-delete', guid])).code === 0;
+}
+
+// ---------- Windows 11 "Optimizations for windowed games" ----------
+export const DX_PREFS_KEY = 'HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences';
+export const DX_GLOBAL = 'DirectXUserGlobalSettings';
+
+/** Sets one key=value; pair inside the semicolon list, keeping all other pairs. */
+export function setDxFlag(current: string, flag: string, value: string): string {
+  const parts = current.split(';').map((s) => s.trim()).filter(Boolean).filter((p) => !p.toLowerCase().startsWith(flag.toLowerCase() + '='));
+  parts.push(`${flag}=${value}`);
+  return parts.join(';') + ';';
+}
+export const dxFlagOn = (current: string | null, flag: string) => !!current && new RegExp(`(^|;)\\s*${flag}=1\\s*(;|$)`, 'i').test(current);

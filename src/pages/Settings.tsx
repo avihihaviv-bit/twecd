@@ -73,7 +73,7 @@ export default function Settings() {
               <span className="text-muted">Version</span><span>TWECD GAMING BOOSTER - EXTREME EDITION v{info.appVersion}</span>
             </div>
           )}
-          <div className="mt-3 text-xs text-muted">TWECD never disables Windows Defender, Firewall, Windows Update or system services, never interacts with anti-cheat, and never modifies Fortnite files or memory.</div>
+          <div className="mt-3 text-xs text-muted">TWECD never disables Windows Defender, Firewall, Windows Update or system services, never interacts with anti-cheat, and never modifies the Fortnite game or its memory (only its settings file, when you click Apply Max FPS, with a backup).</div>
         </Card>
       </div>
 

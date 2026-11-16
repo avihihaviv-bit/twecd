@@ -32,8 +32,11 @@ You can also build it on GitHub: push this folder to a repository and run the *B
 | Switch to High/Ultimate Performance power plan (if it exists) | Yes – Restore Defaults |
 | Close background apps **you tick** (browsers, Spotify, launchers…) | Re-open them |
 | Delete user TEMP files untouched for 24h+ (in-use files skipped) | No (temporary files) |
+| **Apply Max FPS settings to Fortnite**: Performance mode, unlimited FPS, VSync/shadows/effects off (edits only `GameUserSettings.ini`, Fortnite must be closed) | Yes – original file backed up |
+| Create/use the Ultimate Performance power plan when no High Performance plan exists | Yes – switched back and removed |
+| Turn on Windows 11 optimizations for windowed games (HKCU) | Yes – Restore Defaults |
 
-**Never touched:** Windows Defender, Firewall, Windows Update, system services, Windows processes, anti-cheat (EasyAntiCheat/BattlEye), Fortnite files and memory, GPU clocks/voltage/firmware, CPU cores/voltage, BIOS, router.
+**Never touched:** Windows Defender, Firewall, Windows Update, system services, Windows processes, anti-cheat (EasyAntiCheat/BattlEye), the Fortnite game files and memory, GPU clocks/voltage/firmware, CPU cores/voltage, BIOS, router.
 
 NVIDIA driver settings, Fortnite graphics settings, BIOS (XMP, microcode) and HAGS appear as **manual tips**. TWECD explains them but doesn't change them.
 
@@ -43,7 +46,7 @@ NVIDIA driver settings, Fortnite graphics settings, BIOS (XMP, microcode) and HA
 - **RTX 5060** – usage, VRAM, temperature, clock, power and limit, driver version, and active clock limits (power or thermal). Data comes from `nvidia-smi`, which ships with the NVIDIA driver.
 - **i5-14600K** – total and per-thread load with the P-core/E-core map (6P+8E, 20 threads), effective clock, temperature when Windows exposes it, and throttling hints.
 - **16GB RAM** – total, available and used, Fortnite's working set, top memory users, and single-channel / XMP hints.
-- **Fortnite Extreme Mode** – detects Fortnite automatically, captures FPS while you play, logs performance drops with a likely cause, and compares your `GameUserSettings.ini` with recommended settings. The file is read-only to TWECD.
+- **Fortnite Extreme Mode** – detects Fortnite automatically, captures FPS while you play, logs performance drops with a likely cause, and compares your `GameUserSettings.ini` with recommended settings and applies the Max FPS profile in one click (backed up, restorable).
 - **Ping & Network** – average, min and max ping, jitter, packet loss, a per-probe graph, Ethernet vs Wi-Fi with signal strength, and editable destinations. It tests your router automatically to tell Wi-Fi, local-network, ISP and destination problems apart.
 - **Before/After Benchmark** – records FPS, 1% low, frame-time std dev, CPU, GPU, RAM, VRAM, ping and loss over 30/60/120 s, then shows the raw difference.
 

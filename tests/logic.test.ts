@@ -174,3 +174,50 @@ describe('IPC validation', () => {
     expect(() => ExternalSchema.parse('https://evil.com/nvidia.com/')).toThrow();
   });
 });
+
+import { applyMaxFps } from '../electron/services/fortniteConfig';
+import { setDxFlag, dxFlagOn } from '../electron/services/windows';
+
+describe('Max FPS profile writer', () => {
+  const ini = '[/Script/FortniteGame.FortGameUserSettings]\r\nbUseVSync=True\r\nFrameRateLimit=144.000000\r\nFullscreenMode=1\r\nSomeOtherKey=Keep\r\n\r\n[ScalabilityGroups]\r\nsg.ShadowQuality=3\r\nsg.TextureQuality=1\r\nsg.ViewDistanceQuality=3\r\n\r\n[D3DRHIPreference]\r\nPreferredRHI=dx12\r\n';
+  const r = applyMaxFps(ini);
+  it('changes the slow settings and keeps everything else', () => {
+    expect(r.text).toContain('bUseVSync=False');
+    expect(r.text).toContain('FrameRateLimit=0.000000');
+    expect(r.text).toContain('FullscreenMode=0');
+    expect(r.text).toContain('SomeOtherKey=Keep');
+    expect(r.text).toContain('sg.ShadowQuality=0');
+    expect(r.text).toContain('sg.ViewDistanceQuality=2');
+    expect(r.text).toContain('PreferredRHI=dx11');
+    expect(r.text).toContain('PreferredFeatureLevel=es31');
+    expect(r.text.split('\r\n').every((l) => !l.includes('\n'))).toBe(true);
+  });
+  it('does not raise or touch settings already at or below target', () => {
+    expect(r.text).toContain('sg.TextureQuality=1');
+    expect(r.changed).not.toContain('Textures: Medium or lower');
+  });
+  it('adds missing keys inside the right section', () => {
+    const lines = r.text.split('\r\n');
+    const sec = lines.indexOf('[D3DRHIPreference]');
+    expect(lines.indexOf('PreferredFeatureLevel=es31')).toBeGreaterThan(sec);
+    expect(lines.indexOf('sg.FoliageQuality=0')).toBeLessThan(sec);
+  });
+  it('is idempotent and the result passes the analyzer', () => {
+    expect(applyMaxFps(r.text).changed).toEqual([]);
+    expect(analyzeFortniteConfig(r.text, 'x').settings.filter((s) => s.ok === false)).toEqual([]);
+  });
+  it('creates sections in an empty file', () => {
+    const e = applyMaxFps('');
+    expect(e.text).toContain('[ScalabilityGroups]');
+    expect(analyzeFortniteConfig(e.text, 'x').settings[0].ok).toBe(true);
+  });
+});
+
+describe('windowed optimizations flag', () => {
+  it('merges without losing other flags', () => {
+    expect(setDxFlag('VRROptimizeEnable=0;', 'SwapEffectUpgradeEnable', '1')).toBe('VRROptimizeEnable=0;SwapEffectUpgradeEnable=1;');
+    expect(setDxFlag('SwapEffectUpgradeEnable=0;X=1;', 'SwapEffectUpgradeEnable', '1')).toBe('X=1;SwapEffectUpgradeEnable=1;');
+    expect(dxFlagOn('X=1;SwapEffectUpgradeEnable=1;', 'SwapEffectUpgradeEnable')).toBe(true);
+    expect(dxFlagOn(null, 'SwapEffectUpgradeEnable')).toBe(false);
+  });
+});

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, HelpCircle, Play, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, HelpCircle, Loader2, Play, RefreshCw, XCircle, Zap } from 'lucide-react';
 import type { FortniteConfigReport, SessionSummary } from '../../shared/types';
 import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
@@ -10,6 +10,18 @@ export default function Fortnite() {
   const [cfg, setCfg] = useState<FortniteConfigReport | null>(null);
   const [sess, setSess] = useState<{ current: SessionSummary | null; last: SessionSummary | null }>({ current: null, last: null });
   const [msg, setMsg] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [applyMsg, setApplyMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const applyMax = async () => {
+    if (!confirm('Apply Max FPS settings to Fortnite?\n\nPerformance rendering mode, unlimited FPS, VSync off, shadows/effects off.\nOnly Fortnite\'s settings file is changed. Your original settings are backed up (Settings > Restore Defaults).')) return;
+    setApplying(true); setApplyMsg(null);
+    try {
+      const r = (await api().apply({ ids: ['fortnite-max-fps'] })).results[0];
+      setApplyMsg({ ok: r.status !== 'failed', text: r.message });
+      await load();
+    } catch (e) { setApplyMsg({ ok: false, text: String(e) }); } finally { setApplying(false); }
+  };
+  const badCount = cfg?.settings.filter((s) => s.ok === false).length ?? 0;
   const load = () => api().fortniteConfig().then(setCfg);
   useEffect(() => { load(); }, []);
   useEffect(() => {
@@ -23,7 +35,7 @@ export default function Fortnite() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="FORTNITE EXTREME MODE" subtitle="Detects Fortnite automatically, measures it while you play, and recommends settings for maximum stable FPS. TWECD never touches game files, game memory or anti-cheat."
+      <PageHeader title="FORTNITE EXTREME MODE" subtitle="Detects Fortnite automatically, measures it while you play, and recommends settings for maximum stable FPS. TWECD only edits Fortnite's settings file (with a backup), never the game itself, its memory or anti-cheat."
         right={<button className="btn-primary px-6" disabled={!info?.isWindows} onClick={async () => setMsg((await api().launchFortnite()).message)}><Play size={16} /> START FORTNITE</button>} />
       {msg && <div className="-mt-3 mb-4 text-sm text-neon2">{msg}</div>}
 
@@ -34,6 +46,17 @@ export default function Fortnite() {
           <div className="text-sm text-muted">{running ? `PID ${live?.fortnite.pid} · ${live?.fpsStatus}` : 'Monitoring starts automatically when the game launches. Keep TWECD open or minimized.'}</div>
         </div>
         {running && <Badge tone="good">LIVE</Badge>}
+      </div>
+
+      <div className={`card mb-6 flex items-center gap-5 p-5 ${badCount ? 'border-neon/40 bg-neon/[0.04]' : ''}`}>
+        <div className="flex-1">
+          <div className="font-display text-lg font-bold tracking-wider text-white">MAX FPS SETTINGS</div>
+          <div className="text-sm text-muted">{!cfg?.found ? 'Start Fortnite once so its settings file exists.' : badCount ? `${badCount} setting${badCount > 1 ? 's are' : ' is'} costing you FPS. One click fixes ${badCount > 1 ? 'them' : 'it'}.` : 'Fortnite already uses the Max FPS settings.'}{running && ' Close Fortnite first.'}</div>
+          {applyMsg && <div className={`mt-2 text-sm ${applyMsg.ok ? 'text-neon2' : 'text-bad'}`}>{applyMsg.text}</div>}
+        </div>
+        <button className="btn-primary px-8 py-3 font-display text-sm tracking-[0.12em]" disabled={applying || running || !cfg?.found || !info?.isWindows || badCount === 0} onClick={applyMax}>
+          {applying ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />} APPLY MAX FPS
+        </button>
       </div>
 
       <div className="grid grid-cols-6 gap-3">
