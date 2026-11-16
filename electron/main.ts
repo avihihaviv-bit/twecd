@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, screen, shell, type IpcMainInvokeE
 import path from 'node:path';
 import { IPC } from '../shared/ipc';
 import type { BenchmarkResult, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
-import { ApplySchema, CapSchema, ProfileSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
+import { ApplySchema, CapSchema, ProfileSchema, RestoreSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
 import { JsonStore } from './services/store';
 import { MonitorHub } from './services/monitor';
 import { PresentMonCapture } from './services/presentMon';
@@ -15,7 +15,7 @@ import { PROFILES } from './services/fortniteConfig';
 import { Updater } from './services/updater';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
-import { listProcesses } from './services/windows';
+import { isAdmin, listProcesses, listUserStartup } from './services/windows';
 import { isWin, run } from './services/exec';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoBoostApps: [],
   livePingHost: '1.1.1.1',
   autoCheckUpdates: true,
+  nvidiaChecklist: [],
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
     { label: 'Google DNS', host: '8.8.8.8' },
@@ -62,6 +63,7 @@ const optimizer = new Optimizer(
   new JsonStore<{ entries: ChangeLogEntry[] }>(ud(), 'changelog.json', { entries: [] }),
   path.join(ud(), 'fortnite-backup'),
   () => hub.latest?.fortnite.running ?? false,
+  async () => staticInfo?.isAdmin ?? (await isAdmin()),
 );
 
 /** Auto-Boost: when Fortnite starts, close ONLY the apps the user ticked in Settings (never system or anti-cheat). */
@@ -148,7 +150,9 @@ function registerIpc() {
     } finally { busy.scan = false; }
   });
   handle(IPC.apply, ApplySchema, (req) => optimizer.apply(req));
-  handle(IPC.restore, null, () => optimizer.restore());
+  handle(IPC.restore, RestoreSchema, (ids) => optimizer.restore(ids ?? undefined));
+  handle(IPC.restorable, null, () => optimizer.restorable());
+  handle(IPC.startupList, null, () => listUserStartup());
   handle(IPC.changeLog, null, () => optimizer.changeLog());
   handle(IPC.hasBackup, null, () => optimizer.hasBackup());
   handle(IPC.processes, null, async () => (await listProcesses(false)).sort((a, b) => b.memMB - a.memMB).slice(0, 40));

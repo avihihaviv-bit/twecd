@@ -10,6 +10,8 @@ export const IPC = {
   restore: 'boost:restore',
   changeLog: 'boost:change-log',
   hasBackup: 'boost:has-backup',
+  restorable: 'boost:restorable',
+  startupList: 'sys:startup-list',
   processes: 'sys:processes',
   metrics: 'sys:metrics',
   netTest: 'net:test',

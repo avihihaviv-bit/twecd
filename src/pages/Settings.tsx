@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FolderOpen, RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
-import type { ApplyItemResult, ChangeLogEntry, Settings as S, UpdateStatus } from '../../shared/types';
+import type { ApplyItemResult, ChangeLogEntry, OptimizationId, RestorableItem, Settings as S, UpdateStatus } from '../../shared/types';
 import { api, errMsg } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, PageHeader } from '../components/ui';
@@ -10,6 +10,7 @@ export default function Settings() {
   const [s, setS] = useState<S | null>(null);
   const [log, setLog] = useState<ChangeLogEntry[]>([]);
   const [hasBackup, setHasBackup] = useState(false);
+  const [items, setItems] = useState<RestorableItem[]>([]);
   const [restored, setRestored] = useState<ApplyItemResult[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<{ exe: string; name: string }[]>([]);
@@ -17,12 +18,12 @@ export default function Settings() {
   useEffect(() => { api().updateGet().then(setUpd); return api().onUpdateStatus(setUpd); }, []);
   const [pingHost, setPingHost] = useState('');
   useEffect(() => { api().closableCatalog().then(setCatalog); }, []);
-  const reload = () => { api().settingsGet().then(setS); api().changeLog().then(setLog); api().hasBackup().then(setHasBackup); };
+  const reload = () => { api().settingsGet().then(setS); api().changeLog().then(setLog); api().hasBackup().then(setHasBackup); api().restorable().then(setItems); };
   useEffect(reload, []);
   const patch = async (p: Partial<S>) => { try { setS(await api().settingsSet(p)); } catch (e) { setMsg(errMsg(e)); } };
 
   const restore = async () => {
-    if (!confirm('Restore all settings TWECD changed (Game Mode, background recording, power plan) to their original values?')) return;
+    if (!confirm('Restore ALL settings TWECD changed to their original values?')) return;
     setRestored(await api().restore()); reload();
   };
 
@@ -32,7 +33,17 @@ export default function Settings() {
       <div className="grid grid-cols-2 gap-6">
         <Card title="Restore defaults">
           <p className="text-sm text-[#c3cdc7]">Puts back the original Windows settings saved before the first optimization. Closed apps can simply be reopened; deleted temp files cannot be restored (they were temporary).</p>
-          <button className="btn-danger mt-4" onClick={restore} disabled={!hasBackup}><RotateCcw size={16} /> RESTORE DEFAULTS</button>
+          {items.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {items.map((it) => (
+                <div key={it.id} className="flex items-center gap-3 rounded-lg border border-line bg-panel2/60 px-3 py-2 text-sm">
+                  <div className="flex-1"><b className="text-white">{it.title}</b><div className="text-xs text-muted">{it.detail}</div></div>
+                  <button className="btn-ghost !px-3 !py-1 text-xs" onClick={async () => { setRestored(await api().restore([it.id as OptimizationId])); reload(); }}><RotateCcw size={13} /> Restore</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="btn-danger mt-4" onClick={restore} disabled={!hasBackup}><RotateCcw size={16} /> RESTORE ALL</button>
           {!hasBackup && <span className="ml-3 text-sm text-muted">Nothing to restore.</span>}
           {restored && <div className="mt-3 space-y-1">{restored.length === 0 ? <div className="text-sm text-muted">Nothing needed restoring.</div> : restored.map((r) => <div key={r.id} className="text-sm"><Badge tone={r.status === 'success' ? 'good' : 'bad'}>{r.status}</Badge> {r.message}</div>)}</div>}
         </Card>

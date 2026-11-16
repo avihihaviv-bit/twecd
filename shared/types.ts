@@ -83,6 +83,7 @@ export interface LiveMetrics {
   fpsStatus: string; // human readable reason when fps is null
   net: NetLive | null;
   netStatus: string;
+  bottleneck: string | null; // live classification while FPS is measured
   mem: MemCounters | null;
 }
 
@@ -129,7 +130,12 @@ export type OptimizationId =
   | 'close-background-apps'
   | 'clean-temp-files'
   | 'fortnite-max-fps'
-  | 'windowed-optimizations-on';
+  | 'windowed-optimizations-on'
+  | 'game-capture-off'
+  | 'fortnite-gpu-preference'
+  | 'hags-on'
+  | 'startup-apps-off'
+  | 'visual-effects-performance';
 
 export interface Recommendation {
   id: string;
@@ -142,6 +148,9 @@ export interface Recommendation {
   reversible: boolean;
   selectedByDefault: boolean;
   processes?: ProcessInfo[];
+  startup?: { name: string; command: string }[];
+  needsAdmin?: boolean;
+  rebootRequired?: boolean;
 }
 
 export interface ScanResult {
@@ -150,12 +159,14 @@ export interface ScanResult {
   steps: ScanStep[];
   findings: Finding[];
   recommendations: Recommendation[];
+  notApplied: { title: string; reason: string }[];
 }
 
-export interface ApplyRequest { ids: OptimizationId[]; pids?: number[] }
+export interface ApplyRequest { ids: OptimizationId[]; pids?: number[]; startupNames?: string[] }
 export type ApplyStatus = 'success' | 'failed' | 'unavailable' | 'skipped';
-export interface ApplyItemResult { id: OptimizationId; title: string; status: ApplyStatus; message: string }
-export interface ApplyResult { results: ApplyItemResult[]; backupSaved: boolean }
+export interface ApplyItemResult { id: OptimizationId; title: string; status: ApplyStatus; message: string; before?: string; after?: string; verified?: boolean | null }
+export interface ApplyResult { results: ApplyItemResult[]; backupSaved: boolean; restorePoint?: { ok: boolean; message: string } | null }
+export interface RestorableItem { id: OptimizationId; title: string; detail: string }
 
 export interface ChangeLogEntry { ts: number; action: string; detail: string }
 
@@ -214,6 +225,7 @@ export interface Settings {
   autoBoost: boolean;
   livePingHost: string;
   autoCheckUpdates: boolean;
+  nvidiaChecklist: string[];
   autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
 }
 

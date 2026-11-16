@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, CircleDashed, Info, Loader2, MinusCircle, Play, Rocket, ScanSearch, ShieldCheck, Timer, XCircle, Zap } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
-import type { ApplyStatus, OptimizationId, Recommendation, ScanStep, StepStatus } from '../../shared/types';
+import type { OptimizationId, Recommendation, ScanStep, StepStatus } from '../../shared/types';
 import { api, errMsg, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, FrameTimeChart, LiveChart } from '../components/ui';
@@ -19,6 +19,8 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
   const { boost, setBoost, live, info, history } = useApp();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pids, setPids] = useState<Set<number>>(new Set());
+  const [startupSel, setStartupSel] = useState<Set<string>>(new Set());
+  const [undone, setUndone] = useState<Record<string, string>>({});
   const [launchMsg, setLaunchMsg] = useState<string | null>(null);
 
   useEffect(() => api().onScanStep((s) => setBoost((b) => ({ ...b, steps: b.steps.map((x) => (x.id === s.id ? s : x)) }))), [setBoost]);
@@ -28,7 +30,7 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
     try {
       const result = await api().scan();
       setSelected(new Set(result.recommendations.filter((r) => r.selectedByDefault && r.optimizationId).map((r) => r.id)));
-      setPids(new Set());
+      setPids(new Set()); setStartupSel(new Set()); setUndone({});
       setBoost((b) => ({ ...b, phase: 'review', result, steps: result.steps }));
     } catch (e) { setBoost((b) => ({ ...b, phase: 'idle', error: errMsg(e) })); }
   };
@@ -43,10 +45,12 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
     if (!ids.length) return;
     const closeRec = chosen.find((r) => r.optimizationId === 'close-background-apps');
     const names = closeRec ? (closeRec.processes ?? []).filter((p) => pids.has(p.pid)).map((p) => p.name) : [];
-    const summary = chosen.map((r) => `- ${r.title}${!r.reversible ? '  (cannot be undone)' : ''}`).join('\n');
-    if (!window.confirm(`Apply these ${ids.length} optimization(s)?\n\n${summary}${names.length ? `\n\nApps that will be closed (save your work first):\n${[...new Set(names)].join(', ')}` : ''}\n\nOriginal settings are saved. Use "Restore Defaults" in Settings to undo.`)) return;
+    const startRec = chosen.find((r) => r.optimizationId === 'startup-apps-off');
+    const startNames = startRec ? [...startupSel] : [];
+    const summary = chosen.map((r) => `- ${r.title}${!r.reversible ? '  (cannot be undone)' : ''}${r.rebootRequired ? '  (needs a PC restart)' : ''}`).join('\n');
+    if (!window.confirm(`Apply these ${ids.length} optimization(s)?\n\n${summary}${names.length ? `\n\nApps that will be closed (save your work first):\n${[...new Set(names)].join(', ')}` : ''}${startNames.length ? `\n\nStartup entries that will be disabled:\n${startNames.join(', ')}` : ''}\n\nOriginal settings are saved. Use "Restore Defaults" in Settings to undo.`)) return;
     setBoost((b) => ({ ...b, phase: 'applying' }));
-    try { const applied = await api().apply({ ids, pids: [...pids] }); setBoost((b) => ({ ...b, phase: 'done', applied })); }
+    try { const applied = await api().apply({ ids, pids: [...pids], startupNames: startNames }); setBoost((b) => ({ ...b, phase: 'done', applied })); }
     catch (e) { setBoost((b) => ({ ...b, phase: 'review', error: errMsg(e) })); }
   };
 
@@ -91,6 +95,7 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
           </div>
 
           <div className="flex flex-col items-center">
+            <div className="title-glow mb-2 font-display text-[12px] font-bold tracking-[0.35em]">EXTREME OPTIMIZATION</div>
             <BigButton phase={boost.phase} pct={pct} onClick={() => (boost.phase === 'idle' || boost.phase === 'done' || boost.phase === 'review') && start('boost')} />
             <div className="mt-3 h-5 text-center text-sm text-muted">
               {boost.phase === 'idle' && 'Scan · explain · apply only what you approve'}
@@ -116,14 +121,25 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
         </div>
       </section>
 
-      {/* MIDDLE: six large cards */}
+      {/* MIDDLE: performance cards */}
       <div className="grid grid-cols-6 gap-4">
-        <BigCard label="FPS" value={live?.fps ? fmt(live.fps.fps) : null} sub={live?.fps ? `1% low ${fmt(live.fps.low1)}` : live?.fpsStatus} data={series.fps} color="#39FF14" accent />
-        <BigCard label="CPU" value={live ? fmt(live.cpu.usage) : null} unit="%" sub={live?.cpu.effectiveClockMHz ? `${(live.cpu.effectiveClockMHz / 1000).toFixed(2)} GHz` : live?.cpu.tempC != null ? `${live.cpu.tempC} °C` : info?.cpu.model.replace(/^(Intel|AMD)(\(R\))?\s*(Core|Ryzen)?(\(TM\))?\s*/i, '') ?? ''} data={series.cpu} color="#39FF14" max={100} />
-        <BigCard label="GPU" value={live?.gpu ? fmt(live.gpu.usage) : null} unit="%" sub={live?.gpu ? `${live.gpu.tempC ?? '-'} °C · ${gb(live.gpu.vramUsedMB)} VRAM` : live?.gpuStatus} data={series.gpu} color="#18C77A" max={100} />
+        <BigCard label="CURRENT FPS" value={live?.fps ? fmt(live.fps.fps) : null} sub={live?.fps ? `stability ${live.fps.stabilityScore}/100` : live?.fpsStatus} data={series.fps} color="#39FF14" accent />
+        <BigCard label="AVERAGE FPS" value={live?.fps ? fmt(live.fps.avg) : null} sub={live?.fps ? `${live.fps.sampleCount} frames` : 'measured in game'} color="#39FF14" />
+        <BigCard label="1% LOW" value={live?.fps ? fmt(live.fps.low1) : null} sub={live?.fps?.low01 != null ? `0.1% low ${fmt(live.fps.low01)}` : 'measured in game'} color="#39FF14" />
+        <BigCard label="CPU" value={live ? fmt(live.cpu.usage) : null} unit="%" sub={live?.cpu.effectiveClockMHz ? `${(live.cpu.effectiveClockMHz / 1000).toFixed(2)} GHz` : info?.cpu.model.replace(/^(Intel|AMD)(\(R\))?\s*(Core|Ryzen)?(\(TM\))?\s*/i, '') ?? ''} data={series.cpu} color="#39FF14" max={100} />
+        <BigCard label="GPU" value={live?.gpu ? fmt(live.gpu.usage) : null} unit="%" sub={live?.gpu ? `${live.gpu.clockMHz ?? '-'} MHz · ${gb(live.gpu.vramUsedMB)} VRAM` : live?.gpuStatus} data={series.gpu} color="#18C77A" max={100} />
         <BigCard label="RAM" value={live ? gb(live.ram.usedMB) : null} sub={live ? `${live.ram.percent.toFixed(0)}% of ${gb(live.ram.totalMB, 0)}` : undefined} data={series.ram} color="#7dd3fc" max={100} />
-        <BigCard label="PING" value={net?.latency != null ? fmt(net.latency, 0) : null} unit="ms" sub={net ? `avg ${fmt(net.avg, 0, ' ms')} · jitter ${fmt(net.jitter, 1, ' ms')} · ${net.host}` : live?.netStatus} data={series.ping} color="#c084fc" />
-        <BigCard label="PACKET LOSS" value={net?.lossPct != null ? fmt(net.lossPct, 0) : null} unit="%" sub={net ? `last ${net.samples} probes` : live?.netStatus} tone={net && (net.lossPct ?? 0) > 0 ? 'warn' : undefined} />
+      </div>
+      <div className="grid grid-cols-6 gap-4">
+        <BigCard label="CPU TEMP" value={live?.cpu.tempC != null ? fmt(live.cpu.tempC) : null} unit="°C" sub={live?.cpu.tempC == null ? 'needs a motherboard sensor driver' : live.cpu.tempC >= 95 ? 'throttling likely' : 'OK'} tone={(live?.cpu.tempC ?? 0) >= 90 ? 'warn' : undefined} />
+        <BigCard label="GPU TEMP" value={live?.gpu?.tempC != null ? fmt(live.gpu.tempC) : null} unit="°C" sub={live?.gpu ? (live.gpu.throttleReasons.length ? live.gpu.throttleReasons[0] : 'no clock limits') : live?.gpuStatus} tone={(live?.gpu?.tempC ?? 0) >= 83 ? 'warn' : undefined} />
+        <div className="card col-span-2 p-5">
+          <div className="label">BOTTLENECK DETECTION</div>
+          <div className={`mt-3 font-display text-[17px] font-bold leading-snug ${live?.bottleneck ? 'text-lilac' : 'text-[#56625b]'}`}>{live?.bottleneck ?? 'Unavailable'}</div>
+          <div className="mt-2 text-xs text-muted">{live?.bottleneck ? 'Live, from measured CPU/GPU busy time, utilization, VRAM, RAM and temperatures.' : 'Appears while Fortnite runs with FPS capture (TWECD as administrator). Full evidence report on the FPS Optimizer page.'}</div>
+        </div>
+        <BigCard label="PING" value={net?.latency != null ? fmt(net.latency, 0) : null} unit="ms" sub={net ? `avg ${fmt(net.avg, 0, ' ms')} · jitter ${fmt(net.jitter, 1, ' ms')}` : live?.netStatus} data={series.ping} color="#c084fc" />
+        <BigCard label="PACKET LOSS" value={net?.lossPct != null ? fmt(net.lossPct, 0) : null} unit="%" sub={net ? `last ${net.samples} probes · ${net.host}` : live?.netStatus} tone={net && (net.lossPct ?? 0) > 0 ? 'warn' : undefined} />
       </div>
 
       {/* SCAN REPORT */}
@@ -145,10 +161,11 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
       )}
       {boost.result && (boost.phase === 'review' || boost.phase === 'applying') && (
         <Card title="Recommended optimizations" right={<span className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={14} className="text-neon" /> Safe, explained, reversible unless marked</span>}>
-          {actionable.length === 0 && <div className="mb-4 text-sm text-muted">No automatic changes needed: your settings already look good.</div>}
+          {actionable.length === 0 && <div className="mb-4 text-sm text-muted">{info?.isWindows ? 'No automatic changes needed: every setting TWECD can change is already optimal.' : 'Windows settings can only be checked and changed on Windows; nothing was changed.'}</div>}
           <div className="grid grid-cols-2 gap-3">
-            {actionable.map((r) => <RecRow key={r.id} r={r} checked={selected.has(r.id)} onToggle={() => setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} pids={pids} setPids={setPids} />)}
+            {actionable.map((r) => <RecRow key={r.id} r={r} checked={selected.has(r.id)} onToggle={() => setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} pids={pids} setPids={setPids} startupSel={startupSel} setStartupSel={setStartupSel} />)}
           </div>
+          <NotApplied items={boost.result.notApplied} />
           {manual.length > 0 && (<><div className="label mb-2 mt-6">Manual tips (TWECD does not change these)</div><div className="grid grid-cols-2 gap-3">{manual.map((r) => <RecRow key={r.id} r={r} manual />)}</div></>)}
           <div className="mt-6 flex items-center justify-between border-t border-line pt-5">
             <div className="text-sm text-muted">TWECD never promises a specific FPS gain. Benchmark before and after to measure the real difference.</div>
@@ -159,20 +176,27 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
         </Card>
       )}
       {boost.phase === 'done' && boost.applied && (
-        <Card title="Applied" right={<Badge tone={boost.applied.backupSaved ? 'good' : 'warn'}>{boost.applied.backupSaved ? 'Original settings saved' : 'Backup could not be saved'}</Badge>}>
-          <div className="grid grid-cols-2 gap-2">
-            {boost.applied.results.map((r) => (
-              <div key={r.id} className="flex items-start gap-3 rounded-xl border border-line bg-panel2/60 p-3">
-                <ApplyIcon s={r.status} />
-                <div className="flex-1"><div className="font-semibold text-white">{r.title}</div><div className="text-sm text-muted">{r.message}</div></div>
-                <Badge tone={r.status === 'success' ? 'good' : r.status === 'failed' ? 'bad' : 'muted'}>{r.status.toUpperCase()}</Badge>
-              </div>
-            ))}
-          </div>
+        <Card title="Before / after report" right={<div className="flex gap-2"><Badge tone={boost.applied.backupSaved ? 'good' : 'warn'}>{boost.applied.backupSaved ? 'Original values saved' : 'Backup could not be saved'}</Badge>{boost.applied.restorePoint && <Badge tone={boost.applied.restorePoint.ok ? 'good' : 'muted'}>{boost.applied.restorePoint.ok ? 'Restore point OK' : 'No restore point'}</Badge>}</div>}>
+          {boost.applied.restorePoint && <div className="mb-3 text-xs text-muted">System Restore: {boost.applied.restorePoint.message}</div>}
+          <table className="w-full text-sm">
+            <thead><tr className="label text-left"><th className="pb-2">Optimization</th><th>Before</th><th>After</th><th>Verified</th><th>Status</th><th /></tr></thead>
+            <tbody>{boost.applied.results.map((r) => (
+              <tr key={r.id} className="border-t border-line/60 align-top">
+                <td className="py-2.5 pr-4"><div className="font-semibold text-white">{r.title}</div><div className="text-xs text-muted">{undone[r.id] ?? r.message}</div></td>
+                <td className="py-2.5 pr-3 text-xs text-muted">{r.before ?? '-'}</td>
+                <td className="py-2.5 pr-3 text-xs text-lilac">{r.after ?? '-'}</td>
+                <td className="py-2.5">{r.verified === true ? <span className="flex items-center gap-1 text-neon"><CheckCircle2 size={15} /> read back OK</span> : r.verified === false ? <span className="text-bad">not confirmed</span> : <span className="text-muted">-</span>}</td>
+                <td className="py-2.5"><Badge tone={r.status === 'success' ? 'good' : r.status === 'failed' ? 'bad' : 'muted'}>{r.status.toUpperCase()}</Badge></td>
+                <td className="py-2.5 text-right">{r.status === 'success' && !undone[r.id] && r.id !== 'clean-temp-files' && r.id !== 'close-background-apps' && <button className="btn-ghost !px-3 !py-1 text-xs" onClick={async () => { const x = await api().restore([r.id]); setUndone((u) => ({ ...u, [r.id]: x[0]?.message ?? 'Restored.' })); }}>Undo</button>}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+          <div className="mt-4 rounded-xl border border-purple/30 bg-purple/[0.06] p-3 text-sm text-[#d9c6f5]">These are configuration changes, not FPS results. TWECD only shows an FPS improvement after it has been measured: run a Benchmark in the same Fortnite scene to compare.</div>
+          <NotApplied items={boost.result?.notApplied ?? []} />
           <div className="mt-5 flex justify-end gap-3">
             <button className="btn-ghost" onClick={() => start('boost')}>Scan again</button>
             <button className="btn-ghost" onClick={onBenchmark}><Timer size={16} /> BENCHMARK</button>
-            <button className="btn-primary px-6" onClick={launch} disabled={!info?.isWindows}><Play size={16} /> START FORTNITE</button>
+            <button className="btn-go px-6" onClick={launch} disabled={!info?.isWindows}><Play size={16} /> START FORTNITE</button>
           </div>
         </Card>
       )}
@@ -222,17 +246,17 @@ function BigButton({ phase, pct, onClick }: { phase: string; pct: number; onClic
   const busy = phase === 'scanning' || phase === 'applying';
   const r = 128; const c = 2 * Math.PI * r;
   return (
-    <button onClick={onClick} disabled={busy} className="group relative flex h-[290px] w-[290px] items-center justify-center rounded-full outline-none" aria-label="Boost my PC">
-      {!busy && <span className="absolute inset-6 rounded-full border-2 border-neon/50 animate-pulseRing" />}
+    <button onClick={onClick} disabled={busy} className="group relative flex h-[290px] w-[290px] items-center justify-center rounded-full outline-none" aria-label="Max FPS - optimize everything">
+      {!busy && <span className="absolute inset-6 rounded-full border-2 border-purple/60 animate-pulseRing" />}
       <svg className="absolute inset-0 -rotate-90" width="290" height="290">
         <circle cx="145" cy="145" r={r} fill="none" stroke="#132019" strokeWidth="6" />
         <circle cx="145" cy="145" r={r} fill="none" stroke="#39FF14" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: 'stroke-dashoffset .5s', filter: 'drop-shadow(0 0 8px #39FF14)' }} />
       </svg>
       <span className={`absolute inset-[30px] rounded-full border border-neon/20 ${busy ? 'animate-spinSlow' : ''}`} style={{ background: 'conic-gradient(from 0deg, transparent 0 70%, rgba(57,255,20,0.25) 85%, transparent)' }} />
-      <span className="relative flex h-[200px] w-[200px] flex-col items-center justify-center rounded-full bg-gradient-to-b from-[#0f1a13] to-[#060a07] shadow-neonLg transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-[0.98] group-disabled:scale-100">
-        {busy ? <Loader2 size={44} className="animate-spin text-neon" /> : <Rocket size={44} className="text-neon drop-shadow-[0_0_10px_#39FF14]" />}
-        <span className="mt-3 font-display text-[22px] font-extrabold leading-tight tracking-[0.14em] text-white">{busy ? (phase === 'scanning' ? 'SCANNING' : 'APPLYING') : 'BOOST'}</span>
-        <span className="font-display text-[13px] font-semibold tracking-[0.3em] text-neon">{busy ? `${Math.round(pct)}%` : 'MY PC'}</span>
+      <span className="relative flex h-[200px] w-[200px] flex-col items-center justify-center rounded-full bg-gradient-to-b from-[#0f1a13] to-[#060a07] shadow-purpleLg transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-[0.98] group-disabled:scale-100">
+        {busy ? <Loader2 size={44} className="animate-spin text-purple" /> : <Rocket size={44} className="text-purple drop-shadow-[0_0_12px_#B44CFF]" />}
+        <span className="mt-3 font-display text-[26px] font-extrabold leading-tight tracking-[0.14em] text-white">{busy ? (phase === 'scanning' ? 'SCANNING' : 'APPLYING') : 'MAX FPS'}</span>
+        <span className="mt-1 font-display text-[10.5px] font-semibold tracking-[0.22em] text-purple">{busy ? `${Math.round(pct)}%` : 'OPTIMIZE EVERYTHING'}</span>
       </span>
     </button>
   );
@@ -247,7 +271,7 @@ function Action({ n, icon: Icon, label, sub, onClick, disabled, primary }: { n: 
   );
 }
 
-function RecRow({ r, checked, onToggle, manual, pids, setPids }: { r: Recommendation; checked?: boolean; onToggle?: () => void; manual?: boolean; pids?: Set<number>; setPids?: (fn: (s: Set<number>) => Set<number>) => void }) {
+function RecRow({ r, checked, onToggle, manual, pids, setPids, startupSel, setStartupSel }: { r: Recommendation; checked?: boolean; onToggle?: () => void; manual?: boolean; pids?: Set<number>; setPids?: (fn: (s: Set<number>) => Set<number>) => void; startupSel?: Set<string>; setStartupSel?: (fn: (s: Set<string>) => Set<string>) => void }) {
   const impact = { high: 'bad', medium: 'warn', low: 'muted' } as const;
   return (
     <div className={`rounded-xl border p-4 transition-colors ${checked ? 'border-neon/40 bg-neon/[0.04]' : 'border-line bg-panel2/50'}`}>
@@ -261,9 +285,21 @@ function RecRow({ r, checked, onToggle, manual, pids, setPids }: { r: Recommenda
             <Badge tone={impact[r.impact]}>{r.impact.toUpperCase()} IMPACT</Badge>
             <Badge tone="muted">{r.area}</Badge>
             {!manual && (r.reversible ? <Badge tone="good">REVERSIBLE</Badge> : <Badge tone="warn">NOT REVERSIBLE</Badge>)}
+            {r.needsAdmin && <Badge tone="info">NEEDS ADMIN</Badge>}{r.rebootRequired && <Badge tone="info">RESTART PC</Badge>}
           </div>
           <div className="mt-1 text-sm text-[#c3cdc7]">{r.why}</div>
           <div className="mt-1 text-xs text-muted"><span className="text-neon2">What changes:</span> {r.change}</div>
+          {r.startup && checked && setStartupSel && startupSel && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {r.startup.map((e) => (
+                <label key={e.name} className="flex cursor-pointer items-center gap-2 rounded-lg border border-line bg-black/20 px-3 py-1.5 text-sm" title={e.command}>
+                  <input type="checkbox" className="accent-[#B44CFF]" checked={startupSel.has(e.name)} onChange={() => setStartupSel((s) => { const n = new Set(s); if (n.has(e.name)) n.delete(e.name); else n.add(e.name); return n; })} />
+                  <span className="flex-1 truncate">{e.name}</span>
+                </label>
+              ))}
+              <div className="col-span-2 text-xs text-muted">Tick the entries to disable at startup. Nothing changes unless ticked.</div>
+            </div>
+          )}
           {r.processes && checked && setPids && pids && (
             <div className="mt-3 grid grid-cols-2 gap-2">
               {r.processes.map((p) => (
@@ -289,9 +325,16 @@ function StepIcon({ status }: { status: StepStatus }) {
   if (status === 'error') return <XCircle size={18} className="mt-0.5 shrink-0 text-bad" />;
   return <CircleDashed size={18} className="mt-0.5 shrink-0 text-[#3a4840]" />;
 }
-function ApplyIcon({ s }: { s: ApplyStatus }) {
-  if (s === 'success') return <CheckCircle2 size={20} className="shrink-0 text-neon" />;
-  if (s === 'failed') return <XCircle size={20} className="shrink-0 text-bad" />;
-  return <MinusCircle size={20} className="shrink-0 text-muted" />;
-}
 
+
+function NotApplied({ items }: { items: { title: string; reason: string }[] }) {
+  if (!items?.length) return null;
+  return (
+    <details className="mt-5 rounded-xl border border-line bg-black/20 p-4">
+      <summary className="cursor-pointer font-semibold text-lilac">Not applied, and why ({items.length})</summary>
+      <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        {items.map((i) => <div key={i.title}><b className="text-white">{i.title}</b><div className="text-muted">{i.reason}</div></div>)}
+      </div>
+    </details>
+  );
+}

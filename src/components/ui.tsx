@@ -6,7 +6,7 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
   return (
     <div className="mb-6 flex items-end justify-between gap-4">
       <div>
-        <h1 className="font-display text-[26px] font-extrabold tracking-[0.08em] text-white">{title}</h1>
+        <h1 className="title-glow font-display text-[28px] font-extrabold tracking-[0.08em]">{title}</h1>
         {subtitle && <p className="mt-1 max-w-3xl text-[15px] text-muted">{subtitle}</p>}
       </div>
       {right}
@@ -17,7 +17,7 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
 export function Card({ title, right, children, className = '' }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
     <section className={`card p-5 ${className}`}>
-      {(title || right) && <div className="mb-4 flex items-center justify-between gap-3">{title && <h2 className="label !text-[12px] !text-[#cfd8d3]">{title}</h2>}{right}</div>}
+      {(title || right) && <div className="mb-4 flex items-center justify-between gap-3">{title && <h2 className="card-title">{title}</h2>}{right}</div>}
       {children}
     </section>
   );

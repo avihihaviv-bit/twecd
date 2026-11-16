@@ -23,6 +23,10 @@ You can also build it on GitHub: push this folder to a repository and run the *B
 3. Click **APPLY** and confirm. You see which items succeeded, which were skipped, and which are unavailable.
 4. Click **START FORTNITE**.
 
+## MAX FPS: Optimize Everything (v1.4)
+
+One button scans Windows, Fortnite and the NVIDIA setup and shows what will change. Nothing is applied until you approve it. After applying, TWECD **reads every value back to verify it saved** and shows a before/after table. Each change has its own Undo button, Settings has per-item restore plus Restore All, and a System Restore point is attempted first when TWECD runs as administrator. The scan also lists what it deliberately does **not** change, and why.
+
 ## What TWECD can change (each change is confirmed first and restorable)
 
 | Optimization | Reversible |
@@ -35,6 +39,11 @@ You can also build it on GitHub: push this folder to a repository and run the *B
 | **Apply Max FPS settings to Fortnite**: Performance mode, unlimited FPS, VSync/shadows/effects off (edits only `GameUserSettings.ini`, Fortnite must be closed) | Yes – original file backed up |
 | Create/use the Ultimate Performance power plan when no High Performance plan exists | Yes – switched back and removed |
 | Turn on Windows 11 optimizations for windowed games (HKCU) | Yes – Restore Defaults |
+| Turn off Xbox Game Bar game capture (GameDVR_Enabled / AppCaptureEnabled, HKCU) | Yes – per item |
+| Run Fortnite on the NVIDIA GPU (per-app GPU preference, HKCU) | Yes – per item |
+| Hardware-accelerated GPU scheduling (HwSchMode, admin + restart) | Yes – per item |
+| Disable ticked startup apps (Task Manager method, HKCU; security/driver/anti-cheat entries never listed) | Yes – per item |
+| Windows visual effects: Best performance (optional, desktop only) | Yes – per item |
 
 **Never touched:** Windows Defender, Firewall, Windows Update, system services, Windows processes, anti-cheat (EasyAntiCheat/BattlEye), the Fortnite game files and memory, GPU clocks/voltage/firmware, CPU cores/voltage, BIOS, router.
 

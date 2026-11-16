@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
+import { NvidiaChecklist } from '../components/NvidiaChecklist';
 import { Badge, Bar, Card, LiveChart, PageHeader, Ring, Stat } from '../components/ui';
 
 export default function Hardware() {
@@ -72,6 +73,8 @@ export default function Hardware() {
           </div>
         </div>
       </Card>
+
+      <div className="mt-6"><NvidiaChecklist /></div>
 
       {/* CPU HEALTH + DISPLAY */}
       <div className="mt-6 grid grid-cols-2 gap-6">

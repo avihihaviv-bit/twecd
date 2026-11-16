@@ -200,3 +200,91 @@ export function setDxFlag(current: string, flag: string, value: string): string 
   return parts.join(';') + ';';
 }
 export const dxFlagOn = (current: string | null, flag: string) => !!current && new RegExp(`(^|;)\\s*${flag}=1\\s*(;|$)`, 'i').test(current);
+
+// ---------- Generic reversible registry tweaks ----------
+export type RegType = 'REG_DWORD' | 'REG_SZ' | 'REG_BINARY';
+export interface RegSnapshot { type: RegType; data: string }
+
+/** HKLM writes are allowed only for these exact keys (and only when running as administrator). */
+const HKLM_WRITABLE = ['HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers'];
+
+export const canWriteKey = (key: string) => key.startsWith('HKCU\\') || HKLM_WRITABLE.includes(key);
+
+export async function regRead(key: string, name: string): Promise<RegSnapshot | null> {
+  const v = await regQuery(key, name);
+  if (!v) return null;
+  const type = (['REG_DWORD', 'REG_SZ', 'REG_BINARY'] as RegType[]).find((t) => t === v.type);
+  if (!type) return null;
+  return { type, data: type === 'REG_DWORD' ? String(dwordOf(v)) : v.data };
+}
+
+export async function regWrite(key: string, name: string, type: RegType, data: string): Promise<boolean> {
+  if (!isWin || !canWriteKey(key)) return false;
+  return (await run('reg', ['add', key, '/v', name, '/t', type, '/d', data, '/f'])).code === 0;
+}
+
+export async function regRemove(key: string, name: string): Promise<boolean> {
+  if (!isWin || !canWriteKey(key)) return false;
+  const r = await run('reg', ['delete', key, '/v', name, '/f']);
+  return r.code === 0 || !(await regQuery(key, name));
+}
+
+export const sameValue = (cur: RegSnapshot | null, type: RegType, data: string) =>
+  !!cur && cur.type === type && (type === 'REG_BINARY' ? cur.data.toUpperCase().startsWith(data.toUpperCase()) : cur.data.toLowerCase() === data.toLowerCase());
+
+// ---------- Startup apps (HKCU only; disabled the same way Task Manager does) ----------
+export const RUN_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run';
+export const STARTUP_APPROVED = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run';
+export const STARTUP_DISABLED = '030000000000000000000000';
+
+/** Startup entries that must never be offered for disabling (security, audio/graphics drivers, anti-cheat, input). */
+export const isEssentialStartup = (name: string, cmd = '') => /^nv|\\nvidia|security|defender|windows|realtek|rtk|audio|nvidia|nvcontainer|intel|igfx|amd|radeon|easyanticheat|battleye|synaptics|elan|touchpad|bluetooth|wacom/i.test(`${name} ${cmd}`);
+
+export interface StartupEntry { name: string; command: string; enabled: boolean; essential: boolean }
+
+export async function listUserStartup(): Promise<StartupEntry[]> {
+  if (!isWin) return [];
+  const runVals = await regListValues(RUN_KEY);
+  const approved = await regListValues(STARTUP_APPROVED);
+  return runVals.map((r) => {
+    const a = approved.find((x) => x.name === r.name);
+    const first = a ? parseInt(a.data.slice(0, 2), 16) : 2;
+    return { name: r.name, command: r.data, enabled: !(first % 2 === 1), essential: isEssentialStartup(r.name, r.data) };
+  });
+}
+
+// ---------- Fortnite executable (for per-app GPU preference) ----------
+/** Finds Fortnite's install folder from Epic Games Launcher manifests (JSON .item files). */
+export function parseEpicManifest(json: string): string | null {
+  try {
+    const m = JSON.parse(json);
+    if (m.AppName === 'Fortnite' || /^fortnite$/i.test(m.DisplayName ?? '')) return m.InstallLocation ?? null;
+  } catch { /* not a manifest */ }
+  return null;
+}
+
+export function fortniteExePath(): string | null {
+  if (!isWin) return null;
+  const dir = path.join(process.env.ProgramData ?? 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests');
+  try {
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.item'))) {
+      const loc = parseEpicManifest(fs.readFileSync(path.join(dir, f), 'utf8'));
+      if (!loc) continue;
+      const exe = path.join(loc, 'FortniteGame', 'Binaries', 'Win64', 'FortniteClient-Win64-Shipping.exe');
+      if (fs.existsSync(exe)) return exe;
+    }
+  } catch { /* launcher not installed */ }
+  return null;
+}
+
+// ---------- System Restore point ----------
+export async function createRestorePoint(): Promise<{ ok: boolean; message: string }> {
+  if (!isWin) return { ok: false, message: 'Windows only.' };
+  const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+    "try { Checkpoint-Computer -Description 'TWECD before optimization' -RestorePointType MODIFY_SETTINGS -WarningAction Stop -ErrorAction Stop; 'OK' } catch { 'ERR: ' + $_.Exception.Message }"], 120000);
+  const out = r.stdout.trim();
+  if (out === 'OK') return { ok: true, message: 'System Restore point created.' };
+  if (/1440|frequency|24 hours/i.test(out)) return { ok: true, message: 'A restore point was already created in the last 24 hours (Windows allows one per day); using that one.' };
+  if (/disabled|not enabled|service/i.test(out)) return { ok: false, message: 'System Protection is turned off on drive C:, so Windows cannot create restore points. TWECD\'s own backup is still saved.' };
+  return { ok: false, message: `Restore point not created (${out.replace(/^ERR: /, '').slice(0, 140) || 'requires administrator'}). TWECD's own backup is still saved.` };
+}

@@ -102,7 +102,9 @@ export class MonitorHub {
       net: this.pinger.snapshot(),
       netStatus: this.pinger.error ?? (this.pinger.snapshot() ? 'OK' : 'Measuring...'),
       mem: this.agent.mem,
+      bottleneck: null,
     };
+    if (fps) m.bottleneck = likelyCause(m);
     this.latest = m;
     this.recordSession(m);
     for (const l of this.listeners) l(m);

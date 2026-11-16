@@ -1,7 +1,7 @@
 import type {
   ApplyItemResult, ApplyRequest, ApplyResult, BenchmarkProgress, BenchmarkRequest, BenchmarkResult, ChangeLogEntry,
   FortniteConfigReport, LiveMetrics, NetContext, NetProgress, NetTestRequest, NetTestResult, ProcessInfo, ScanResult,
-  ScanStep, SessionSummary, Settings, StaticInfo, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
+  ScanStep, SessionSummary, Settings, StaticInfo, OptimizationId, RestorableItem, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
 } from '../../shared/types';
 
 type Off = () => void;
@@ -13,7 +13,9 @@ export interface TwecdApi {
   scan(): Promise<ScanResult>;
   onScanStep(cb: (s: ScanStep) => void): Off;
   apply(req: ApplyRequest): Promise<ApplyResult>;
-  restore(): Promise<ApplyItemResult[]>;
+  restore(ids?: OptimizationId[]): Promise<ApplyItemResult[]>;
+  restorable(): Promise<RestorableItem[]>;
+  startupList(): Promise<{ name: string; command: string; enabled: boolean; essential: boolean }[]>;
   changeLog(): Promise<ChangeLogEntry[]>;
   hasBackup(): Promise<boolean>;
   processes(): Promise<ProcessInfo[]>;

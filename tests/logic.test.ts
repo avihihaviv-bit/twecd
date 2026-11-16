@@ -192,9 +192,9 @@ describe('Max FPS profile writer', () => {
     expect(r.text).toContain('PreferredFeatureLevel=es31');
     expect(r.text.split('\r\n').every((l) => !l.includes('\n'))).toBe(true);
   });
-  it('does not raise or touch settings already at or below target', () => {
-    expect(r.text).toContain('sg.TextureQuality=1');
-    expect(r.changed).not.toContain('Textures: Medium or lower');
+  it('sets textures Low and the balanced Far view distance (profiles differ by view distance)', () => {
+    expect(r.text).toContain('sg.TextureQuality=0');
+    expect(applyMaxFps('[ScalabilityGroups]\nsg.ViewDistanceQuality=1\n').text).toContain('sg.ViewDistanceQuality=2');
   });
   it('adds missing keys inside the right section', () => {
     const lines = r.text.split('\r\n');

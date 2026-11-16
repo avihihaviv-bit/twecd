@@ -7,7 +7,7 @@ import { pingSeries, getNetContext } from './network';
 import { diagnose } from './ping';
 import { friendlyName } from './processCatalog';
 import { INTEL_SAFE_MICROCODE, isRaptorLake } from './winProbe';
-import { getBackgroundRecording, getGameMode, getHags, listPowerSchemes, listProcesses, listStartupApps, scanTemp, regQuery, dxFlagOn, DX_GLOBAL, DX_PREFS_KEY, HIGH_PERF, ULTIMATE } from './windows';
+import { getBackgroundRecording, getGameMode, getHags, listPowerSchemes, listProcesses, listStartupApps, listUserStartup, scanTemp, regQuery, regRead, dwordOf, dxFlagOn, fortniteExePath, DX_GLOBAL, DX_PREFS_KEY, GAMEDVR_KEY, HIGH_PERF, ULTIMATE } from './windows';
 
 const LABELS: Record<ScanStepId, string> = {
   cpu: 'Scan CPU', gpu: 'Scan GPU', vram: 'Scan VRAM', ram: 'Scan RAM', processes: 'Scan running processes',
@@ -102,8 +102,10 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
         recs.push({ id: 'rec-close-apps', optimizationId: 'close-background-apps', area: 'Processes', title: `Close ${grouped.size} background app${grouped.size > 1 ? 's' : ''}`, why: `These apps use about ${(totalMem / 1024).toFixed(1)} GB RAM and CPU time that Fortnite could use. Save your work in them first.`, change: `Closes: ${[...grouped.values()].map((p) => friendlyName(p.name)).join(', ')}. Windows processes and anti-cheat are never touched.`, impact: totalMem > 1500 ? 'high' : 'medium', reversible: true, selectedByDefault: false, processes: pick.sort((a, b) => b.memMB - a.memMB) });
       }
       if (isWin) {
-        const st = await listStartupApps();
-        if (st.length > 6) f({ id: 'startup', area: 'Startup', severity: 'info', title: `${st.length} apps start with Windows`, detail: `${st.slice(0, 8).map((s) => s.name).join(', ')}${st.length > 8 ? '...' : ''}. Disable the ones you don't need in Settings > Apps > Startup.` });
+        const user = (await listUserStartup()).filter((e) => e.enabled && !e.essential);
+        if (user.length) recs.push({ id: 'rec-startup', optimizationId: 'startup-apps-off', area: 'Startup', title: `Disable startup apps you don't need (${user.length} found)`, why: 'Apps that start with Windows keep running in the background while you play. Disabled apps still work when you open them yourself. Security, audio, graphics and anti-cheat entries are never listed.', change: 'Disables the ticked entries exactly like Task Manager > Startup apps (current user).', impact: 'medium', reversible: true, selectedByDefault: false, startup: user.map((e) => ({ name: e.name, command: e.command })) });
+        const machine = (await listStartupApps()).filter((s) => s.scope === 'machine');
+        if (machine.length) f({ id: 'startup-machine', area: 'Startup', severity: 'info', title: `${machine.length} machine-wide startup entries`, detail: `${machine.slice(0, 6).map((s) => s.name).join(', ')}. These are installed for all users (often drivers); manage them in Settings > Apps > Startup if needed.` });
       }
       return ['done', `${list.length} processes, ${grouped.size} closable app${grouped.size === 1 ? '' : 's'} found`];
     });
@@ -126,8 +128,19 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
       if (rec.enabled) recs.push({ id: 'rec-dvr', optimizationId: 'background-recording-off', area: 'Windows', title: 'Turn off background recording', why: '"Record what happened" continuously encodes gameplay in the background, which costs GPU time and can cause hitches.', change: 'Sets Settings > Gaming > Captures > Record what happened to Off. Manual recording still works.', impact: 'medium', reversible: true, selectedByDefault: true });
       const dx = (await regQuery(DX_PREFS_KEY, DX_GLOBAL))?.data ?? null;
       if (!dxFlagOn(dx, 'SwapEffectUpgradeEnable')) recs.push({ id: 'rec-dx', optimizationId: 'windowed-optimizations-on', area: 'Windows', title: 'Turn on optimizations for windowed games', why: 'Windows 11 feature that lowers latency and can raise FPS for games in borderless/windowed mode.', change: 'Sets Settings > System > Display > Graphics > Optimizations for windowed games to On.', impact: 'low', reversible: true, selectedByDefault: true });
+      const capture = dwordOf(await regQuery('HKCU\\System\\GameConfigStore', 'GameDVR_Enabled'));
+      const appCap = dwordOf(await regQuery(GAMEDVR_KEY, 'AppCaptureEnabled'));
+      if (capture !== 0 || appCap !== 0) recs.push({ id: 'rec-capture', optimizationId: 'game-capture-off', area: 'Xbox Game Bar', title: 'Turn off Xbox Game Bar game capture', why: 'Game Bar keeps its capture system hooked into games so it can record. Turning capture off removes that overhead. Game Mode keeps working.', change: 'Sets GameDVR_Enabled = 0 and AppCaptureEnabled = 0 (current user). Win+Alt+R clips will not work until restored.', impact: 'low', reversible: true, selectedByDefault: true });
+      const exe = fortniteExePath();
+      if (exe) {
+        const pref = await regRead(DX_PREFS_KEY, exe);
+        if (!pref || !/GpuPreference=2/i.test(pref.data)) recs.push({ id: 'rec-gpupref', optimizationId: 'fortnite-gpu-preference', area: 'Graphics', title: 'Run Fortnite on the NVIDIA GPU', why: 'The i5-14600K has its own integrated graphics. Marking Fortnite as "High performance" guarantees Windows never runs it on the integrated GPU.', change: `Settings > System > Display > Graphics: ${exe} = High performance.`, impact: 'low', reversible: true, selectedByDefault: true });
+      }
       const hags = await getHags();
-      if (hags === false) f({ id: 'hags', area: 'Windows', severity: 'info', title: 'Hardware-accelerated GPU scheduling is off', detail: 'Required for NVIDIA DLSS Frame Generation and can reduce latency. Turn on in Settings > System > Display > Graphics (needs restart).' });
+      if (hags === false) recs.push({ id: 'rec-hags', optimizationId: 'hags-on', area: 'Graphics', title: 'Turn on Hardware-accelerated GPU scheduling', why: 'Lets the RTX 5060 manage its own video memory scheduling. Required for DLSS Frame Generation and can lower latency. Effect on FPS varies by system, so benchmark before and after.', change: 'Sets HwSchMode = 2 (machine-wide). Needs administrator rights and a PC restart.', impact: 'low', reversible: true, selectedByDefault: false, needsAdmin: true, rebootRequired: true });
+      else if (hags === true) f({ id: 'hags', area: 'Graphics', severity: 'good', title: 'Hardware-accelerated GPU scheduling is on', detail: 'Recommended for RTX 50-series GPUs.' });
+      const vfx = dwordOf(await regQuery('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects', 'VisualFXSetting'));
+      if (vfx !== 2) recs.push({ id: 'rec-vfx', optimizationId: 'visual-effects-performance', area: 'Windows', title: 'Set Windows visual effects to Best performance', why: 'Turns off animations and shadows in Windows itself. It does not change FPS inside fullscreen Fortnite; it only makes the desktop lighter. Windows will look plainer.', change: 'System Properties > Performance Options > Adjust for best performance (current user, after sign-out).', impact: 'low', reversible: true, selectedByDefault: false });
       return ['done', `Game Mode ${gm.enabled ? 'on' : 'off'}, background recording ${rec.enabled ? 'on' : 'off'}`];
     });
 
@@ -185,5 +198,16 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
   } finally {
     release();
   }
-  return { startedAt, finishedAt: Date.now(), steps, findings, recommendations: recs };
+  const notApplied = [
+    { title: 'NVIDIA Control Panel settings', reason: 'NVIDIA has no public way for apps to change driver profiles, and TWECD will not install third-party tools. Use the guided NVIDIA checklist in System Optimizer.' },
+    { title: 'Turning off fullscreen optimizations', reason: 'Kept on: on Windows 11 they enable the flip presentation model with lower latency; disabling them has no measured benefit for Fortnite.' },
+    { title: 'Disabling background apps globally', reason: 'Not changed: it breaks notifications and app updates and has no measurable FPS effect. TWECD closes or auto-closes the specific apps instead.' },
+    { title: 'Network registry tweaks (Nagle, TCP)', reason: 'Not applied: Fortnite game traffic uses UDP, so TCP tweaks do not change in-game ping.' },
+    { title: 'CPU scheduling / core-parking registry hacks', reason: 'Not applied: undocumented and unreliable. Game Mode and the high-performance power plan already handle scheduling and core parking.' },
+    { title: 'Windows Power mode slider', reason: 'Covered by the power plan: when the Ultimate/High Performance plan is active the slider does not apply.' },
+    { title: 'Fortnite Replays and NVIDIA Reflex', reason: 'Not stored in the settings file TWECD edits. Set in-game: Settings > Game > Replays Off, Settings > Video > NVIDIA Reflex On + Boost.' },
+    { title: 'BIOS, XMP, overclocking, voltages', reason: 'Never automatic. TWECD only reports (e.g. memory speed, microcode) and tells you what to check.' },
+    { title: 'Windows Defender, Firewall, Windows Update, system services', reason: 'Never touched. Disabling them does not raise FPS and removes protection.' },
+  ];
+  return { startedAt, finishedAt: Date.now(), steps, findings, recommendations: recs, notApplied };
 }

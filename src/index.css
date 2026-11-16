@@ -16,10 +16,10 @@ body {
 }
 .bg-grid {
   background-image:
-    radial-gradient(1200px 600px at 70% -10%, rgba(57,255,20,0.07), transparent 60%),
-    radial-gradient(800px 500px at -10% 110%, rgba(24,199,122,0.06), transparent 60%),
-    linear-gradient(rgba(57,255,20,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(57,255,20,0.025) 1px, transparent 1px);
+    radial-gradient(1200px 600px at 75% -10%, rgba(180,76,255,0.10), transparent 60%),
+    radial-gradient(900px 520px at -10% 110%, rgba(57,255,20,0.06), transparent 60%),
+    linear-gradient(rgba(180,76,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180,76,255,0.03) 1px, transparent 1px);
   background-size: auto, auto, 44px 44px, 44px 44px;
 }
 .drag { -webkit-app-region: drag; }
@@ -31,12 +31,15 @@ body {
 
 @layer components {
   .card { @apply rounded-2xl border border-line bg-panel/90 backdrop-blur-sm; box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 10px 30px rgba(0,0,0,0.35); }
-  .card-hover { @apply transition-all duration-200 hover:border-neon/30; }
+  .card-hover { @apply transition-all duration-200 hover:border-purple/40 hover:shadow-[0_0_30px_rgba(180,76,255,0.12)]; }
   .label { @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted; }
   .num { @apply font-display tabular-nums; }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 font-semibold tracking-wide transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-40; }
-  .btn-primary { @apply btn bg-neon text-black hover:bg-[#5bff3d] hover:shadow-neon active:scale-[0.98]; }
-  .btn-ghost { @apply btn border border-line bg-panel2 text-white hover:border-neon/40 hover:text-neon; }
+  .btn-primary { @apply btn bg-gradient-to-r from-purple2 to-purple text-white hover:shadow-purple hover:brightness-110 active:scale-[0.98]; }
+  .btn-go { @apply btn bg-neon text-black hover:bg-[#5bff3d] hover:shadow-neon active:scale-[0.98]; }
+  .title-glow { color: #E4C8FF; text-shadow: 0 0 22px rgba(180,76,255,0.65), 0 0 2px rgba(180,76,255,0.9); }
+  .card-title { @apply text-[12px] font-semibold uppercase tracking-[0.18em]; color: #CDA6FF; }
+  .btn-ghost { @apply btn border border-line bg-panel2 text-white hover:border-purple/50 hover:text-lilac; }
   .btn-danger { @apply btn border border-bad/40 bg-bad/10 text-bad hover:bg-bad/20; }
   .chip { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
 }
