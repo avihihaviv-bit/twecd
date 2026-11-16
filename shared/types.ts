@@ -217,7 +217,7 @@ export interface Settings {
   autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
 }
 
-export type FortniteProfileId = 'competitive' | 'high-fps' | 'stability' | 'dx12';
+export type FortniteProfileId = 'ultra' | 'competitive' | 'high-fps' | 'stability' | 'dx12';
 export interface FortniteProfileInfo { id: FortniteProfileId; name: string; summary: string; needsCap: boolean }
 
 export interface UpdateStatus { state: 'idle' | 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error' | 'disabled'; version?: string; percent?: number; message?: string }

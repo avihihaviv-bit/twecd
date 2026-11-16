@@ -22,7 +22,7 @@ const ROWS: Row[] = [
   { k: 'Jitter', get: (r) => r.jitter ?? null, d: 1, unit: ' ms', higherBetter: false },
   { k: 'Packet loss', get: (r) => r.packetLossPct, d: 0, unit: '%', higherBetter: false },
 ];
-const PROFILE_NAMES: Record<string, string> = { 'high-fps': 'High FPS', competitive: 'Competitive', stability: 'Frame Time Stability', dx12: 'DirectX 12' };
+const PROFILE_NAMES: Record<string, string> = { ultra: 'Ultra FPS', 'high-fps': 'High FPS', competitive: 'Competitive', stability: 'Frame Time Stability', dx12: 'DirectX 12' };
 const name = (r: BenchmarkResult) => `${r.label}${r.profile ? ` · ${PROFILE_NAMES[r.profile] ?? r.profile}` : ''} · ${new Date(r.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
 
 export default function Benchmark({ embedded }: { embedded?: boolean }) {

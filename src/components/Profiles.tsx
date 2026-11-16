@@ -25,7 +25,7 @@ export function Profiles({ current, onChanged }: { current: FortniteProfileId | 
 
   return (
     <Card title="Fortnite performance profiles" right={<span className="text-xs text-muted">Active: <b className="text-white">{current ? list.find((l) => l.id === current)?.name ?? current : current === null ? 'Custom settings' : 'Unavailable'}</b></span>}>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         {list.map((p) => {
           const active = current === p.id;
           const blocked = p.needsCap && !cap;

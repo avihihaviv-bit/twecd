@@ -197,6 +197,7 @@ export function recommendCap(perSecondFps: number[]): { sustained: number; cap: 
 const without = (keys: string[]) => MAX_FPS_PROFILE.filter((t) => !keys.includes(t.key));
 
 export const PROFILES: Record<FortniteProfileId, FortniteProfileInfo> = {
+  ultra: { id: 'ultra', name: 'Ultra FPS', summary: 'For CPU-bound PCs: High FPS settings plus Medium view distance and Low textures, which cut the CPU work per frame. Distant objects pop in later.', needsCap: false },
   'high-fps': { id: 'high-fps', name: 'High FPS', summary: 'Performance mode, unlimited FPS, everything heavy off. Highest peak and average FPS.', needsCap: false },
   competitive: { id: 'competitive', name: 'Competitive Performance', summary: 'Performance mode with Epic view distance so distant players render earlier. Slightly more CPU work.', needsCap: false },
   stability: { id: 'stability', name: 'Frame Time Stability', summary: 'High FPS settings plus a Stable FPS Lock at the FPS your PC holds 90% of the time. Smoothest frame pacing.', needsCap: true },
@@ -206,6 +207,11 @@ export const PROFILES: Record<FortniteProfileId, FortniteProfileInfo> = {
 export function profileTargets(id: FortniteProfileId, cap?: number): Target[] {
   switch (id) {
     case 'high-fps': return MAX_FPS_PROFILE;
+    case 'ultra': return [
+      ...without(['sg.ViewDistanceQuality', 'sg.TextureQuality']),
+      { section: 'ScalabilityGroups', key: 'sg.ViewDistanceQuality', value: '1', label: 'View Distance: Medium' },
+      { section: 'ScalabilityGroups', key: 'sg.TextureQuality', value: '0', label: 'Textures: Low' },
+    ];
     case 'competitive': return [...without(['sg.ViewDistanceQuality']), { section: 'ScalabilityGroups', key: 'sg.ViewDistanceQuality', value: '3', label: 'View Distance: Epic' }];
     case 'stability':
       if (!cap || cap < 30) throw new Error('Play one match with FPS capture first so TWECD can measure the right lock.');
@@ -232,6 +238,7 @@ export function detectProfile(text: string): FortniteProfileId | null {
   if (rhi === 'dx12') return 'dx12';
   if (!/es31/i.test(lvl)) return null;
   if (vd === 3) return 'competitive';
+  if (vd <= 1 && ini.get('sg.texturequality') === '0' && !(cap > 0)) return 'ultra';
   if (cap > 0) return 'stability';
   return 'high-fps';
 }

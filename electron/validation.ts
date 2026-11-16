@@ -29,4 +29,4 @@ const ALLOWED_EXTERNAL = [
 ];
 export const ExternalSchema = z.string().max(300).refine((u) => ALLOWED_EXTERNAL.some((r) => r.test(u)), 'URL not allowed');
 
-export const ProfileSchema = z.object({ profile: z.enum(['competitive', 'high-fps', 'stability', 'dx12']), cap: z.number().int().min(30).max(1000).optional() });
+export const ProfileSchema = z.object({ profile: z.enum(['ultra', 'competitive', 'high-fps', 'stability', 'dx12']), cap: z.number().int().min(30).max(1000).optional() });

@@ -83,6 +83,7 @@ describe('Fortnite profiles', () => {
   const base = '[/Script/FortniteGame.FortGameUserSettings]\nFrameRateLimit=144.000000\nbUseVSync=True\n[ScalabilityGroups]\nsg.ShadowQuality=3\nsg.ViewDistanceQuality=1\n[D3DRHIPreference]\nPreferredRHI=dx12\n';
   it('each profile is detected after applying it', () => {
     expect(detectProfile(applyProfile(base, 'high-fps').text)).toBe('high-fps');
+    expect(detectProfile(applyProfile(base, 'ultra').text)).toBe('ultra');
     expect(detectProfile(applyProfile(base, 'competitive').text)).toBe('competitive');
     expect(detectProfile(applyProfile(base, 'stability', 380).text)).toBe('stability');
     expect(detectProfile(applyProfile(base, 'dx12').text)).toBe('dx12');
@@ -102,5 +103,15 @@ describe('Fortnite profiles', () => {
     expect(t).toContain('PreferredRHI=dx12');
     expect(t).toContain('PreferredFeatureLevel=sm6');
     expect(t).toContain('sg.ShadowQuality=0');
+  });
+});
+
+describe('Ultra FPS profile', () => {
+  it('lowers the CPU-heavy settings and keeps everything else on the Max FPS profile', () => {
+    const t = applyProfile('[ScalabilityGroups]\nsg.ViewDistanceQuality=3\nsg.TextureQuality=2\n', 'ultra').text;
+    expect(t).toContain('sg.ViewDistanceQuality=1');
+    expect(t).toContain('sg.TextureQuality=0');
+    expect(t).toContain('PreferredFeatureLevel=es31');
+    expect(t).toContain('bUseVSync=False');
   });
 });
