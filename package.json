@@ -15,7 +15,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
     "fetch:presentmon": "node scripts/fetch-presentmon.mjs",
-    "dist": "npm run build && npm run fetch:presentmon && electron-builder --win nsis --x64",
+    "dist": "npm run build && npm run fetch:presentmon && electron-builder --win --x64",
     "start": "npm run build && electron ."
   },
   "build": {
@@ -48,10 +48,17 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.png",
-      "requestedExecutionLevel": "asInvoker"
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "TWECD-Portable.${ext}"
     },
     "nsis": {
       "oneClick": false,

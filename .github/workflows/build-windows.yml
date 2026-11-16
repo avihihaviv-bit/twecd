@@ -17,14 +17,16 @@ jobs:
       - run: npm run dist
         env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
       - uses: actions/upload-artifact@v4
-        with: { name: TWECD-Setup, path: release/TWECD-Setup.exe }
+        with: { name: TWECD-Setup, path: release/TWECD-*.* }
       - name: Publish download (always at releases/latest)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: TWECD GAMING BOOSTER - EXTREME EDITION v1.0.${{ github.run_number }}
           make_latest: true
-          files: release/TWECD-Setup.exe
+          files: |
+            release/TWECD-Setup.exe
+            release/TWECD-Portable.zip
           body: |
             Download **TWECD-Setup.exe**, double-click to install. A desktop shortcut is created automatically.
             Windows may show "Windows protected your PC" because the installer is not code-signed: click "More info" then "Run anyway".
