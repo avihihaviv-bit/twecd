@@ -46,6 +46,7 @@ export class Optimizer {
     this.log.write(l);
   }
   changeLog() { return this.log.read().entries; }
+  note(action: string, detail: string) { this.addLog(action, detail); }
   hasBackup() {
     const b = this.backup.readRaw();
     return (!!b && (b.autoGameModeEnabled !== undefined || b.historicalCaptureEnabled !== undefined || !!b.powerSchemeGuid || b.dxGlobalSettings !== undefined)) || fs.existsSync(fortniteBackupPath(this.fortniteBackupDir));

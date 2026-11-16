@@ -38,8 +38,8 @@ export function analyzeFortniteConfig(text: string, path: string): FortniteConfi
 
   const fl = get('FrameRateLimit');
   const flNum = fl === null ? null : parseFloat(fl);
-  add('FrameRateLimit', 'Frame Rate Limit', flNum === null ? null : flNum === 0 ? 'Unlimited' : `${Math.round(flNum)} FPS`, 'Unlimited (or cap just below your stable FPS)',
-    flNum === 0 || (flNum !== null && flNum >= 360),
+  add('FrameRateLimit', 'Frame Rate Limit', flNum === null ? null : flNum === 0 ? 'Unlimited' : `${Math.round(flNum)} FPS`, 'Unlimited, or a Stable FPS Lock',
+    flNum === 0 || (flNum !== null && flNum >= MIN_STABLE_CAP),
     'Unlimited lets the game run as fast as the hardware allows. If FPS swings a lot, a cap slightly below your average gives smoother frame times.');
 
   const vs = get('bUseVSync');
@@ -82,8 +82,11 @@ export function analyzeFortniteConfig(text: string, path: string): FortniteConfi
     'Use "Apply Max FPS settings" to set these automatically (Fortnite must be closed). Your original file is backed up and can be restored.',
     'In Fortnite: enable NVIDIA Reflex "On + Boost" for lower latency (not stored in this file).',
   ];
-  return { found: true, path, settings: s, notes };
+  return { found: true, path, settings: s, notes, frameRateLimit: flNum };
 }
+
+/** Caps at or above this are treated as a deliberate Stable FPS Lock and left alone by the Max FPS profile. */
+export const MIN_STABLE_CAP = 200;
 
 // ---------- Max-FPS profile (written only with user confirmation, original is backed up) ----------
 const GUS = '/Script/FortniteGame.FortGameUserSettings';
@@ -130,6 +133,7 @@ export function applyMaxFps(text: string): { text: string; changed: string[] } {
     if (idx >= 0) {
       const curVal = lines[idx].slice(lines[idx].indexOf('=') + 1).trim();
       if (t.onlyIfAbove !== undefined && parseFloat(curVal) <= t.onlyIfAbove) continue;
+      if (t.key === 'FrameRateLimit' && parseFloat(curVal) >= MIN_STABLE_CAP) continue; // keep the user's Stable FPS Lock
       if (curVal.toLowerCase() === t.value.toLowerCase()) continue;
       lines[idx] = `${t.key}=${t.value}`;
       changed.add(t.label);
@@ -152,4 +156,37 @@ export function applyMaxFps(text: string): { text: string; changed: string[] } {
     changed.add(t.label);
   }
   return { text: lines.join(eol), changed: [...changed] };
+}
+
+/** Sets FrameRateLimit (0 = unlimited) in the FortGameUserSettings section, keeping everything else. */
+export function setFrameRateLimit(text: string, cap: number): string {
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(/\r?\n/);
+  let sec = '';
+  let found = false;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].trim().match(/^\[(.+)\]$/);
+    if (m) { sec = m[1]; continue; }
+    if (sec === GUS && /^\s*FrameRateLimit\s*=/i.test(lines[i])) { lines[i] = `FrameRateLimit=${cap.toFixed(6)}`; found = true; }
+  }
+  if (found) return lines.join(eol);
+  const at = lines.findIndex((l) => l.trim() === `[${GUS}]`);
+  if (at >= 0) { lines.splice(at + 1, 0, `FrameRateLimit=${cap.toFixed(6)}`); return lines.join(eol); }
+  while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+  lines.push('', `[${GUS}]`, `FrameRateLimit=${cap.toFixed(6)}`);
+  return lines.join(eol);
+}
+
+/**
+ * Recommended Stable FPS Lock from REAL per-second FPS samples: the FPS the PC holds 90% of the time,
+ * rounded down to a multiple of 10 (or 5 below 100). Null when there is not enough data (<60 s of play).
+ */
+export function recommendCap(perSecondFps: number[]): { sustained: number; cap: number } | null {
+  const v = perSecondFps.filter((x) => Number.isFinite(x) && x > 0);
+  if (v.length < 60) return null;
+  const sorted = [...v].sort((a, b) => a - b);
+  const sustained = sorted[Math.floor(sorted.length * 0.1)];
+  const step = sustained >= 100 ? 10 : 5;
+  const cap = Math.max(30, Math.floor(sustained / step) * step);
+  return { sustained, cap };
 }

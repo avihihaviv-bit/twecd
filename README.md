@@ -48,6 +48,8 @@ NVIDIA driver settings, Fortnite graphics settings, BIOS (XMP, microcode) and HA
 - **16GB RAM** – total, available and used, Fortnite's working set, top memory users, and single-channel / XMP hints.
 - **Fortnite Extreme Mode** – detects Fortnite automatically, captures FPS while you play, logs performance drops with a likely cause, and compares your `GameUserSettings.ini` with recommended settings and applies the Max FPS profile in one click (backed up, restorable).
 - **Ping & Network** – average, min and max ping, jitter, packet loss, a per-probe graph, Ethernet vs Wi-Fi with signal strength, and editable destinations. It tests your router automatically to tell Wi-Fi, local-network, ISP and destination problems apart.
+- **Stable FPS Lock** – measures the FPS your PC holds 90% of the time during real matches, recommends a lock just below it, and writes it to Fortnite's settings in one click (backed up). Flat frame times feel smoother than a higher, unstable number.
+- **Auto-Boost** – optional: closes the background apps you tick (browsers, launchers, Spotify…) automatically when Fortnite starts. Never touches Windows, drivers or anti-cheat.
 - **Before/After Benchmark** – records FPS, 1% low, frame-time std dev, CPU, GPU, RAM, VRAM, ping and loss over 30/60/120 s, then shows the raw difference.
 
 ## FPS capture (PresentMon)

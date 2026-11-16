@@ -12,6 +12,8 @@ export default function Settings() {
   const [hasBackup, setHasBackup] = useState(false);
   const [restored, setRestored] = useState<ApplyItemResult[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<{ exe: string; name: string }[]>([]);
+  useEffect(() => { api().closableCatalog().then(setCatalog); }, []);
   const reload = () => { api().settingsGet().then(setS); api().changeLog().then(setLog); api().hasBackup().then(setHasBackup); };
   useEffect(reload, []);
   const patch = async (p: Partial<S>) => { try { setS(await api().settingsSet(p)); } catch (e) { setMsg(errMsg(e)); } };
@@ -60,6 +62,29 @@ export default function Settings() {
               </label>
               <p className="text-xs text-muted">When the window is minimized, all other monitoring stops to keep TWECD lightweight.</p>
             </div>
+          )}
+        </Card>
+
+        <Card title="Auto-Boost when Fortnite starts" className="col-span-2">
+          {s && (
+            <>
+              <label className="flex cursor-pointer items-center gap-3 text-sm">
+                <input id="auto-boost" type="checkbox" className="accent-[#39FF14]" checked={s.autoBoost} onChange={(e) => patch({ autoBoost: e.target.checked })} />
+                <span><b className="text-white">Close these apps automatically as soon as Fortnite starts</b><span className="block text-xs text-muted">Frees CPU and RAM for steadier FPS. Only apps you tick are closed; Windows, drivers and anti-cheat are never touched. Save your work in them before playing.</span></span>
+              </label>
+              <div className={`mt-4 grid grid-cols-4 gap-2 ${s.autoBoost ? '' : 'pointer-events-none opacity-40'}`}>
+                {(() => { const seen = new Set<string>(); return catalog.filter((c) => !seen.has(c.name) && seen.add(c.name)); })().map((c) => {
+                  const exes = catalog.filter((x) => x.name === c.name).map((x) => x.exe);
+                  const on = exes.some((x) => s.autoBoostApps.includes(x));
+                  return (
+                    <label key={c.name} className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${on ? 'border-neon/40 bg-neon/[0.05]' : 'border-line bg-black/20'}`}>
+                      <input type="checkbox" className="accent-[#39FF14]" checked={on} onChange={() => patch({ autoBoostApps: on ? s.autoBoostApps.filter((x) => !exes.includes(x)) : [...new Set([...s.autoBoostApps, ...exes])] })} />
+                      <span className="truncate">{c.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </>
           )}
         </Card>
 

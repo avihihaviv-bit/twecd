@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('twecd', {
   fortniteConfig: () => invoke(IPC.fortniteConfig),
   launchFortnite: () => invoke(IPC.fortniteLaunch),
   session: () => invoke(IPC.sessionGet),
+  setFortniteCap: (cap: number) => invoke(IPC.fortniteSetCap, cap),
+  closableCatalog: () => invoke(IPC.closableCatalog),
   benchRun: (req: unknown) => invoke(IPC.benchRun, req),
   onBenchProgress: on(IPC.benchProgress),
   benchList: () => invoke(IPC.benchList),

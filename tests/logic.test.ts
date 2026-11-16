@@ -221,3 +221,32 @@ describe('windowed optimizations flag', () => {
     expect(dxFlagOn(null, 'SwapEffectUpgradeEnable')).toBe(false);
   });
 });
+
+import { recommendCap, setFrameRateLimit } from '../electron/services/fortniteConfig';
+
+describe('Stable FPS Lock', () => {
+  it('needs 60 s of real data', () => expect(recommendCap(Array(59).fill(450))).toBeNull());
+  it('recommends the FPS held 90% of the time, rounded down', () => {
+    // 450 FPS user with dips: 80% around 450-520, 20% dips to 300-380
+    const fps = [...Array(80).fill(0).map((_, i) => 450 + (i % 70)), ...Array(20).fill(0).map((_, i) => 300 + i * 4)];
+    const r = recommendCap(fps)!;
+    expect(r.cap % 10).toBe(0);
+    expect(r.cap).toBeLessThanOrEqual(r.sustained);
+    expect(r.cap).toBeGreaterThanOrEqual(340);
+    expect(r.cap).toBeLessThan(450);
+  });
+  it('writes and replaces FrameRateLimit in the right section', () => {
+    const ini = '[/Script/FortniteGame.FortGameUserSettings]\r\nFrameRateLimit=0.000000\r\nbUseVSync=False\r\n';
+    const out = setFrameRateLimit(ini, 400);
+    expect(out).toContain('FrameRateLimit=400.000000');
+    expect(out).not.toContain('FrameRateLimit=0.000000');
+    expect(out).toContain('\r\n');
+    expect(setFrameRateLimit('', 240)).toContain('[/Script/FortniteGame.FortGameUserSettings]\nFrameRateLimit=240.000000');
+  });
+  it('Max FPS profile keeps a user lock, and the analyzer accepts it', () => {
+    const locked = setFrameRateLimit('[/Script/FortniteGame.FortGameUserSettings]\nFrameRateLimit=0.000000\n', 400);
+    expect(applyMaxFps(locked).text).toContain('FrameRateLimit=400.000000');
+    expect(analyzeFortniteConfig(locked, 'x').settings.find((s) => s.key === 'FrameRateLimit')!.ok).toBe(true);
+    expect(applyMaxFps('[/Script/FortniteGame.FortGameUserSettings]\nFrameRateLimit=60.000000\n').text).toContain('FrameRateLimit=0.000000');
+  });
+});

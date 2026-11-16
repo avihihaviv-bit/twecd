@@ -4,6 +4,7 @@ import type { FortniteConfigReport, SessionSummary } from '../../shared/types';
 import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
+import { FpsLock } from '../components/FpsLock';
 
 export default function Fortnite() {
   const { live, info } = useApp();
@@ -58,6 +59,8 @@ export default function Fortnite() {
           {applying ? <Loader2 size={18} className="animate-spin" /> : <Zap size={18} />} APPLY MAX FPS
         </button>
       </div>
+
+      <div className="mb-6"><FpsLock /></div>
 
       <div className="grid grid-cols-6 gap-3">
         <Stat label="FPS" value={running && live?.fps ? fmt(live.fps.fps) : null} tone="neon" />

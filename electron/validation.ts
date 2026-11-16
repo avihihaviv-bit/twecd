@@ -12,8 +12,12 @@ export const SettingsSchema = z.object({
   netTargets: z.array(NetTargetSchema).min(1).max(8).optional(),
   trackFortniteWhileMinimized: z.boolean().optional(),
   presentMonPath: z.string().max(500).nullable().optional(),
+  autoBoost: z.boolean().optional(),
+  autoBoostApps: z.array(z.string().max(80)).max(60).optional(),
 }).strict();
 export const VisibleSchema = z.boolean();
+/** 0 = unlimited, otherwise 30..1000 FPS */
+export const CapSchema = z.number().int().refine((v) => v === 0 || (v >= 30 && v <= 1000), 'Cap must be 0 (unlimited) or 30-1000');
 
 const ALLOWED_EXTERNAL = [
   /^ms-settings:(gaming-gamemode|gaming-gamedvr|startupapps|powersleep|display-advancedgraphics|network-status|windowsupdate)$/,

@@ -24,6 +24,8 @@ export interface TwecdApi {
   fortniteConfig(): Promise<FortniteConfigReport>;
   launchFortnite(): Promise<{ ok: boolean; message: string }>;
   session(): Promise<{ current: SessionSummary | null; last: SessionSummary | null }>;
+  setFortniteCap(cap: number): Promise<{ ok: boolean; message: string }>;
+  closableCatalog(): Promise<{ exe: string; name: string }[]>;
   benchRun(req: BenchmarkRequest): Promise<BenchmarkResult>;
   onBenchProgress(cb: (p: BenchmarkProgress) => void): Off;
   benchList(): Promise<BenchmarkResult[]>;

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { IPC } from '../shared/ipc';
 import type { BenchmarkResult, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
-import { ApplySchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
+import { ApplySchema, CapSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
 import { JsonStore } from './services/store';
 import { MonitorHub } from './services/monitor';
 import { PresentMonCapture } from './services/presentMon';
@@ -11,7 +11,8 @@ import { collectStaticInfo } from './services/staticInfo';
 import { runScan } from './services/scan';
 import { Optimizer, type Backup } from './services/optimizer';
 import { getNetContext, runNetTest } from './services/network';
-import { readFortniteConfig, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
+import { readFortniteConfig, applyFortniteCap, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
+import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
 import { listProcesses } from './services/windows';
 import { isWin } from './services/exec';
@@ -21,6 +22,8 @@ const DEFAULT_SETTINGS: Settings = {
   presentMonPath: null,
   monitorIntervalMs: 1000,
   trackFortniteWhileMinimized: true,
+  autoBoost: false,
+  autoBoostApps: [],
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
     { label: 'Google DNS', host: '8.8.8.8' },
@@ -46,6 +49,7 @@ const hub = new MonitorHub({
   baseClockMHz: () => staticInfo?.cpu.baseClockMHz ?? null,
   presentMonPath: pmPath,
   emit: (m) => win?.webContents.send(IPC.metrics, m),
+  onFortniteStart: () => void runAutoBoost(),
 });
 const optimizer = new Optimizer(
   new JsonStore<Backup>(ud(), 'backup.json', { createdAt: 0 }),
@@ -53,6 +57,19 @@ const optimizer = new Optimizer(
   path.join(ud(), 'fortnite-backup'),
   () => hub.latest?.fortnite.running ?? false,
 );
+
+/** Auto-Boost: when Fortnite starts, close ONLY the apps the user ticked in Settings (never system or anti-cheat). */
+async function runAutoBoost() {
+  if (!settings.autoBoost || settings.autoBoostApps.length === 0) return;
+  const wanted = new Set(settings.autoBoostApps.map((n) => n.toLowerCase()));
+  const procs = await listProcesses(false);
+  const closed = new Set<string>();
+  for (const p of procs) {
+    if (!wanted.has(p.name.toLowerCase()) || !isClosable(p.name)) continue;
+    try { process.kill(p.pid); closed.add(friendlyName(p.name)); } catch { /* already gone or protected */ }
+  }
+  if (closed.size) optimizer.note('Auto-Boost (Fortnite started)', `Closed: ${[...closed].join(', ')}`);
+}
 
 function trusted(e: IpcMainInvokeEvent): boolean {
   const url = e.senderFrame?.url ?? '';
@@ -133,6 +150,14 @@ function registerIpc() {
     catch { return { ok: false, message: 'Epic Games Launcher not found. Install it from epicgames.com.' }; }
   });
   handle(IPC.sessionGet, null, () => hub.getSession());
+  handle(IPC.fortniteSetCap, CapSchema, (cap) => {
+    if (!isWin) return { ok: false, message: 'Only available on Windows.' };
+    if (hub.latest?.fortnite.running) return { ok: false, message: 'Close Fortnite first: the game overwrites its settings file when it exits.' };
+    const r = applyFortniteCap(path.join(ud(), 'fortnite-backup'), cap);
+    if (r.ok) optimizer.note(cap === 0 ? 'Stable FPS Lock removed' : `Stable FPS Lock: ${cap} FPS`, r.message);
+    return r;
+  });
+  handle(IPC.closableCatalog, null, () => closableCatalog());
 
   handle(IPC.benchRun, BenchSchema, async (req, e) => {
     if (busy.bench) throw new Error('A benchmark is already running');

@@ -36,5 +36,6 @@ export function categorize(name: string): ProcessInfo['category'] {
   return 'other';
 }
 
+export const closableCatalog = () => Object.entries(CLOSABLE).map(([exe, name]) => ({ exe, name }));
 export const friendlyName = (name: string) => CLOSABLE[name.toLowerCase()] ?? name;
 export const isClosable = (name: string) => categorize(name) === 'closable';

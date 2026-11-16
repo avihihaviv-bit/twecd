@@ -147,12 +147,15 @@ export interface NetProgress { host: string; index: number; latency: number | nu
 
 // ---------- Fortnite ----------
 export interface FortniteSetting { key: string; label: string; current: string | null; recommended: string; ok: boolean | null; note: string }
-export interface FortniteConfigReport { found: boolean; path: string | null; settings: FortniteSetting[]; notes: string[] }
+export interface FortniteConfigReport { found: boolean; path: string | null; settings: FortniteSetting[]; notes: string[]; frameRateLimit?: number | null }
 
 export interface PerfDropEvent { ts: number; kind: 'fps-drop' | 'stutter'; detail: string; likelyCause: string }
 export interface SessionSummary {
   startedAt: number; endedAt: number | null; durationSec: number;
   avgFps: number | null; low1: number | null; stabilityScore: number | null;
+  sustainedFps: number | null; // FPS held 90% of the time (10th percentile of per-second FPS)
+  fpsSamples: number;
+  recommendedCap: number | null; // Stable FPS Lock suggestion, null until 60 s of measured play
   avgCpu: number; avgGpu: number | null; peakVramMB: number | null; peakRamPct: number;
   drops: PerfDropEvent[];
 }
@@ -172,4 +175,6 @@ export interface Settings {
   monitorIntervalMs: number;
   netTargets: NetTarget[];
   trackFortniteWhileMinimized: boolean;
+  autoBoost: boolean;
+  autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
 }

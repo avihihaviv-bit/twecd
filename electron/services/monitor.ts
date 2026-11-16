@@ -5,6 +5,7 @@ import { GpuMonitor } from './gpuMonitor';
 import { PresentMonCapture } from './presentMon';
 import { FORTNITE_EXE } from './processCatalog';
 import { isWin, run } from './exec';
+import { recommendCap } from './fortniteConfig';
 
 export interface HubOptions {
   intervalMs: () => number;
@@ -12,6 +13,7 @@ export interface HubOptions {
   baseClockMHz: () => number | null;
   presentMonPath: () => string | null;
   emit: (m: LiveMetrics) => void;
+  onFortniteStart?: () => void;
 }
 
 /**
@@ -111,8 +113,9 @@ export class MonitorHub {
   }
 
   private onFortniteStart() {
+    try { this.o.onFortniteStart?.(); } catch { /* never block monitoring */ }
     this.pm.start(FORTNITE_EXE);
-    this.session = { startedAt: Date.now(), endedAt: null, durationSec: 0, avgFps: null, low1: null, stabilityScore: null, avgCpu: 0, avgGpu: null, peakVramMB: null, peakRamPct: 0, drops: [], _n: 0, _cpu: 0, _gpu: 0, _gpuN: 0, _fps: [] };
+    this.session = { startedAt: Date.now(), endedAt: null, durationSec: 0, avgFps: null, low1: null, stabilityScore: null, sustainedFps: null, fpsSamples: 0, recommendedCap: null, avgCpu: 0, avgGpu: null, peakVramMB: null, peakRamPct: 0, drops: [], _n: 0, _cpu: 0, _gpu: 0, _gpuN: 0, _fps: [] };
     this.applyMode();
   }
 
@@ -156,7 +159,8 @@ export class MonitorHub {
   private publicSession(): SessionSummary | null {
     const s = this.session;
     if (!s) return null;
-    return { startedAt: s.startedAt, endedAt: s.endedAt, durationSec: s.durationSec, avgFps: s.avgFps, low1: s.low1, stabilityScore: s.stabilityScore, avgCpu: s._n ? s._cpu / s._n : 0, avgGpu: s._gpuN ? s._gpu / s._gpuN : null, peakVramMB: s.peakVramMB, peakRamPct: s.peakRamPct, drops: [...s.drops] };
+    const rec = recommendCap(s._fps);
+    return { startedAt: s.startedAt, endedAt: s.endedAt, durationSec: s.durationSec, avgFps: s.avgFps, low1: s.low1, stabilityScore: s.stabilityScore, sustainedFps: rec?.sustained ?? null, fpsSamples: s._fps.length, recommendedCap: rec?.cap ?? null, avgCpu: s._n ? s._cpu / s._n : 0, avgGpu: s._gpuN ? s._gpu / s._gpuN : null, peakVramMB: s.peakVramMB, peakRamPct: s.peakRamPct, drops: [...s.drops] };
   }
 
   getSession(): { current: SessionSummary | null; last: SessionSummary | null } { return { current: this.publicSession(), last: this.lastSession }; }

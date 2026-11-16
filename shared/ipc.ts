@@ -18,6 +18,8 @@ export const IPC = {
   fortniteConfig: 'fn:config',
   fortniteLaunch: 'fn:launch',
   sessionGet: 'fn:session',
+  fortniteSetCap: 'fn:set-cap',
+  closableCatalog: 'settings:closable-catalog',
   benchRun: 'bench:run',
   benchProgress: 'bench:progress',
   benchList: 'bench:list',

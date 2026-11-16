@@ -3,6 +3,7 @@ import { Target } from 'lucide-react';
 import { fmt } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, FrameTimeChart, LiveChart, PageHeader, Stat } from '../components/ui';
+import { FpsLock } from '../components/FpsLock';
 
 const TARGET = 750;
 
@@ -43,6 +44,8 @@ export default function Stability() {
           <p className="mt-4 text-sm text-muted">750 FPS is an aspirational target, not a promise. On an RTX 5060 + i5-14600K it is only approachable in Performance mode, in light scenes, with the CPU free of background load. Late-game fights are usually CPU-bound and lower.</p>
         </Card>
       </div>
+
+      <div className="mt-6"><FpsLock /></div>
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         <Card title="FPS over time"><LiveChart data={data} series={[{ key: 'fps', name: 'FPS', color: '#39FF14' }, { key: 'low1', name: '1% low', color: '#18C77A' }]} max="auto" unit="" height={200} /></Card>
