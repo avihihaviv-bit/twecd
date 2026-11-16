@@ -1,0 +1,172 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { isWin, run } from './exec';
+import type { ProcessInfo } from '../../shared/types';
+import { categorize } from './processCatalog';
+
+// ---------- Registry (HKCU only for writes; HKLM read-only) ----------
+export interface RegValue { type: string; data: string }
+
+export async function regQuery(key: string, value: string): Promise<RegValue | null> {
+  if (!isWin) return null;
+  const r = await run('reg', ['query', key, '/v', value]);
+  if (r.code !== 0) return null;
+  const line = r.stdout.split(/\r?\n/).find((l) => l.trim().toLowerCase().startsWith(value.toLowerCase() + ' '));
+  if (!line) return null;
+  const m = line.trim().match(/^\S+\s+(REG_\w+)\s*(.*)$/);
+  return m ? { type: m[1], data: m[2].trim() } : null;
+}
+
+export const dwordOf = (v: RegValue | null): number | null => (v ? parseInt(v.data, v.data.startsWith('0x') ? 16 : 10) : null);
+
+export async function regSetDword(key: string, value: string, data: number): Promise<boolean> {
+  if (!isWin || !key.startsWith('HKCU\\')) return false;
+  const r = await run('reg', ['add', key, '/v', value, '/t', 'REG_DWORD', '/d', String(data), '/f']);
+  return r.code === 0;
+}
+
+export async function regDeleteValue(key: string, value: string): Promise<boolean> {
+  if (!isWin || !key.startsWith('HKCU\\')) return false;
+  const r = await run('reg', ['delete', key, '/v', value, '/f']);
+  return r.code === 0;
+}
+
+export async function regListValues(key: string): Promise<{ name: string; data: string }[]> {
+  if (!isWin) return [];
+  const r = await run('reg', ['query', key]);
+  if (r.code !== 0) return [];
+  return r.stdout.split(/\r?\n/).map((l) => l.match(/^\s{4}(.+?)\s{4}(REG_\w+)\s{4}(.*)$/)).filter((m): m is RegExpMatchArray => !!m).map((m) => ({ name: m[1], data: m[3] }));
+}
+
+// ---------- Game Mode / Game Bar ----------
+export const GAMEBAR_KEY = 'HKCU\\Software\\Microsoft\\GameBar';
+export const GAMEDVR_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR';
+
+export async function getGameMode(): Promise<{ enabled: boolean | null; raw: number | null }> {
+  if (!isWin) return { enabled: null, raw: null };
+  const v = dwordOf(await regQuery(GAMEBAR_KEY, 'AutoGameModeEnabled'));
+  // Absent value = Windows 11 default, which is ON.
+  return { enabled: v === null ? true : v !== 0, raw: v };
+}
+
+export async function getBackgroundRecording(): Promise<{ enabled: boolean | null; raw: number | null }> {
+  if (!isWin) return { enabled: null, raw: null };
+  const v = dwordOf(await regQuery(GAMEDVR_KEY, 'HistoricalCaptureEnabled'));
+  return { enabled: v === 1, raw: v };
+}
+
+export async function getHags(): Promise<boolean | null> {
+  const v = dwordOf(await regQuery('HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers', 'HwSchMode'));
+  return v === null ? null : v === 2;
+}
+
+// ---------- Power plans ----------
+export const HIGH_PERF = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c';
+export const ULTIMATE = 'e9a42b02-d5df-448d-aa00-03f14749eb61';
+export const BALANCED = '381b4222-f694-41f0-9685-ff5bb260df2e';
+
+export interface PowerScheme { guid: string; name: string; active: boolean }
+
+export async function listPowerSchemes(): Promise<PowerScheme[]> {
+  if (!isWin) return [];
+  const r = await run('powercfg', ['/list']);
+  if (r.code !== 0) return [];
+  return r.stdout.split(/\r?\n/).map((l) => l.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*\((.*?)\)\s*(\*)?/i))
+    .filter((m): m is RegExpMatchArray => !!m).map((m) => ({ guid: m[1].toLowerCase(), name: m[2], active: !!m[3] }));
+}
+
+export async function setPowerScheme(guid: string): Promise<boolean> {
+  if (!isWin || !/^[0-9a-f-]{36}$/i.test(guid)) return false;
+  return (await run('powercfg', ['/setactive', guid])).code === 0;
+}
+
+// ---------- Admin ----------
+export async function isAdmin(): Promise<boolean> {
+  if (!isWin) return process.getuid?.() === 0;
+  return (await run('net', ['session'], 5000)).code === 0;
+}
+
+// ---------- Processes ----------
+export async function listProcesses(withCpu: boolean): Promise<ProcessInfo[]> {
+  if (isWin) {
+    if (!withCpu) {
+      const r = await run('tasklist', ['/fo', 'csv', '/nh']);
+      return parseTasklist(r.stdout);
+    }
+    const ps = 'Get-Process | ForEach-Object { "$($_.Id)|$($_.ProcessName)|$([math]::Round($_.TotalProcessorTime.TotalMilliseconds))|$($_.WorkingSet64)" }';
+    const snap = async () => { const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], 20000); return { r, t: Date.now() }; };
+    const a = await snap();
+    await new Promise((res) => setTimeout(res, 1000));
+    const b = await snap();
+    const prev = new Map<number, number>();
+    for (const l of a.r.stdout.split(/\r?\n/)) { const p = l.split('|'); if (p.length === 4) prev.set(+p[0], +p[2]); }
+    const cores = os.cpus().length;
+    const dt = b.t - a.t;
+    return b.r.stdout.split(/\r?\n/).map((l) => l.trim().split('|')).filter((p) => p.length === 4 && +p[0] > 0).map((p) => {
+      const pid = +p[0]; const name = p[1] + '.exe'; const cpuMs = +p[2];
+      const before = prev.get(pid);
+      return { pid, name, memMB: +p[3] / 1048576, cpuPercent: before === undefined ? null : Math.max(0, ((cpuMs - before) / dt / cores) * 100), category: categorize(name) };
+    });
+  }
+  // Linux/macOS (development): ps
+  const r = await run('ps', ['-eo', 'pid=,rss=,pcpu=,comm=']);
+  return r.stdout.split('\n').map((l) => l.trim().match(/^(\d+)\s+(\d+)\s+([\d.]+)\s+(.+)$/)).filter((m): m is RegExpMatchArray => !!m)
+    .map((m) => ({ pid: +m[1], name: m[4], memMB: +m[2] / 1024, cpuPercent: +m[3], category: categorize(m[4]) }));
+}
+
+export function parseTasklist(csv: string): ProcessInfo[] {
+  return csv.split(/\r?\n/).map((l) => l.match(/^"([^"]*)","(\d+)","[^"]*","[^"]*","([^"]*)"/)).filter((m): m is RegExpMatchArray => !!m)
+    .map((m) => ({ pid: +m[2], name: m[1], memMB: (parseInt(m[3].replace(/\D/g, ''), 10) || 0) / 1024, cpuPercent: null, category: categorize(m[1]) }));
+}
+
+// ---------- Startup apps (read-only) ----------
+export async function listStartupApps(): Promise<{ name: string; scope: 'user' | 'machine' }[]> {
+  const user = await regListValues('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run');
+  const machine = await regListValues('HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run');
+  return [...user.map((v) => ({ name: v.name, scope: 'user' as const })), ...machine.map((v) => ({ name: v.name, scope: 'machine' as const }))];
+}
+
+// ---------- Temporary files ----------
+const TEMP_MIN_AGE_MS = 24 * 3600 * 1000; // only files untouched for 24h+
+
+export function tempDir(): string { return os.tmpdir(); }
+
+/** Measures (and optionally deletes) entries in the user's TEMP folder older than 24 hours. Locked files are skipped. */
+export function scanTemp(remove: boolean, limit = 60000): { files: number; bytes: number; freedBytes: number; skipped: number } {
+  const root = tempDir();
+  const now = Date.now();
+  let files = 0, bytes = 0, freed = 0, skipped = 0, visited = 0;
+  const walk = (dir: string, top: boolean): boolean => {
+    let entries: fs.Dirent[];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return false; }
+    let allRemoved = true;
+    for (const e of entries) {
+      if (++visited > limit) return false;
+      const p = path.join(dir, e.name);
+      try {
+        const st = fs.lstatSync(p);
+        if (st.isSymbolicLink()) { allRemoved = false; continue; }
+        if (st.isDirectory()) {
+          const childGone = walk(p, false);
+          if (remove && childGone && now - st.mtimeMs > TEMP_MIN_AGE_MS) { try { fs.rmdirSync(p); } catch { allRemoved = false; } } else allRemoved = false;
+          continue;
+        }
+        if (now - st.mtimeMs < TEMP_MIN_AGE_MS) { allRemoved = false; continue; }
+        files++; bytes += st.size;
+        if (remove) { try { fs.unlinkSync(p); freed += st.size; } catch { skipped++; allRemoved = false; } } else allRemoved = false;
+      } catch { allRemoved = false; }
+    }
+    return top ? false : allRemoved;
+  };
+  walk(root, true);
+  return { files, bytes, freedBytes: freed, skipped };
+}
+
+// ---------- Wi-Fi signal ----------
+export async function wifiSignal(): Promise<number | null> {
+  if (!isWin) return null;
+  const r = await run('netsh', ['wlan', 'show', 'interfaces'], 8000);
+  const m = r.stdout.match(/:\s*(\d{1,3})\s*%/);
+  return m ? Math.min(100, +m[1]) : null;
+}

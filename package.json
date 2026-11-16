@@ -1,0 +1,94 @@
+{
+  "name": "twecd-gaming-booster",
+  "productName": "TWECD GAMING BOOSTER - EXTREME EDITION",
+  "version": "1.0.0",
+  "description": "TWECD Gaming Booster - Extreme Edition. Real performance monitoring and safe, reversible optimizations for Fortnite on Windows 11.",
+  "author": "TWECD",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "node scripts/build-electron.mjs && concurrently -k \"vite\" \"node scripts/dev-electron.mjs\"",
+    "build:renderer": "vite build",
+    "build:electron": "node scripts/build-electron.mjs --prod",
+    "build": "npm run typecheck && npm run build:renderer && npm run build:electron",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "test": "vitest run",
+    "fetch:presentmon": "node scripts/fetch-presentmon.mjs",
+    "dist": "npm run build && npm run fetch:presentmon && electron-builder --win nsis --x64",
+    "start": "npm run build && electron ."
+  },
+  "build": {
+    "appId": "com.twecd.gamingbooster",
+    "productName": "TWECD GAMING BOOSTER - EXTREME EDITION",
+    "copyright": "Copyright (c) 2026 TWECD",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "TWECD Gaming Booster",
+      "artifactName": "TWECD-Setup.exe",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": null
+  },
+  "devDependencies": {
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/orbitron": "^5.3.0",
+    "@fontsource/rajdhani": "^5.3.0",
+    "@types/node": "^22.20.5",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.6.2",
+    "concurrently": "^10.0.7",
+    "electron": "^39.8.10",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "lucide-react": "^1.73.0",
+    "postcss": "^8.5.33",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.15.4",
+    "systeminformation": "^5.33.23",
+    "tailwindcss": "3.4",
+    "typescript": "5.7",
+    "vite": "^6.4.6",
+    "vitest": "^3.2.7",
+    "zod": "^3.25.76"
+  }
+}
