@@ -1,6 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, screen, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { IPC } from '../shared/ipc';
 import type { BenchmarkResult, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
 import { ApplySchema, CapSchema, ProfileSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
@@ -17,7 +16,7 @@ import { Updater } from './services/updater';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
 import { listProcesses } from './services/windows';
-import { isWin } from './services/exec';
+import { isWin, run } from './services/exec';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
 const DEFAULT_SETTINGS: Settings = {
@@ -127,11 +126,17 @@ function registerIpc() {
   handle(IPC.openExternal, ExternalSchema, (url) => shell.openExternal(url));
   handle(IPC.relaunchAdmin, null, async () => {
     if (!isWin || !app.isPackaged) return { ok: false, message: 'Only available in the installed Windows app.' };
+    // Free the single-instance lock first, otherwise the elevated copy sees this one and exits immediately.
+    app.releaseSingleInstanceLock();
     const exe = process.execPath.replace(/'/g, "''");
-    const p = spawn('powershell', ['-NoProfile', '-Command', `Start-Process -FilePath '${exe}' -Verb RunAs`], { windowsHide: true, detached: true });
-    p.unref();
-    setTimeout(() => app.quit(), 800);
-    return { ok: true, message: 'Restarting as administrator...' };
+    // Waits for the UAC answer: exit 0 = elevated copy started, 1 = user clicked "No".
+    const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', `try { Start-Process -FilePath '${exe}' -Verb RunAs -ErrorAction Stop; exit 0 } catch { exit 1 }`], 120000);
+    if (r.code !== 0) {
+      app.requestSingleInstanceLock();
+      return { ok: false, message: 'Administrator permission was not given, so TWECD keeps running normally. FPS capture needs it; click again and choose "Yes".' };
+    }
+    setTimeout(() => app.quit(), 300);
+    return { ok: true, message: 'Reopening TWECD as administrator...' };
   });
 
   handle(IPC.scan, null, async (_a, e) => {
