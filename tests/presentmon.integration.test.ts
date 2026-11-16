@@ -38,6 +38,9 @@ describe.skipIf(process.platform === 'win32')('PresentMon capture pipeline', () 
     expect(m.gpuBusyMs).toBeCloseTo(2.1);
     expect(m.cpuBusyMs).toBeCloseTo(1.2);
     expect(m.stabilityScore).toBeLessThan(100);
+    expect(m.tickP99Ms).toBe(2.5); // exactly 1% of frames are spikes, so p99 is still the normal frame
+    expect(m.tickMaxMs).toBe(20);
+    expect(pm.sessionLow1()).toBeNull(); // < 1000 frames: no fabricated value
   });
   it('reports missing PresentMon instead of fabricating data', () => {
     const pm = new PresentMonCapture(() => null);

@@ -1,7 +1,7 @@
 import { build } from 'esbuild';
 const prod = process.argv.includes('--prod');
 const common = {
-  bundle: true, platform: 'node', format: 'cjs', target: 'node22', external: ['electron'],
+  bundle: true, platform: 'node', format: 'cjs', target: 'node22', external: ['electron', 'electron-updater'],
   sourcemap: !prod, minify: prod, logLevel: 'info',
   define: { 'process.env.TWECD_DEV': JSON.stringify(prod ? '' : '1') },
 };

@@ -15,10 +15,28 @@ export interface StaticInfo {
   isAdmin: boolean;
   appVersion: string;
   cpu: { model: string; physicalCores: number | null; logicalCores: number; baseClockMHz: number | null; topology: CpuTopology | null };
-  ram: { totalMB: number; modules: { sizeMB: number; speedMHz: number | null; type: string | null }[]; channelsHint: 'single' | 'dual-or-more' | null };
+  ram: {
+    totalMB: number;
+    modules: { sizeMB: number; speedMHz: number | null; ratedMHz?: number | null; type: string | null; slot?: string | null }[];
+    channelsHint: 'single' | 'dual-or-more' | null;
+    channelEvidence?: string;
+  };
+  display?: DisplayInfo | null;
+  platformInfo?: { biosVendor: string | null; biosVersion: string | null; biosDate: string | null; board: string | null; microcode: number | null } | null;
   gpu: { name: string | null; driver: string | null; vramTotalMB: number | null; nvidiaSmi: boolean };
   presentMon: { available: boolean; path: string | null };
 }
+
+export interface DisplayInfo {
+  name: string | null;
+  currentHz: number | null;
+  maxHz: number | null;       // highest refresh the monitor reports (null when Windows does not expose it)
+  width: number | null;
+  height: number | null;
+}
+
+export interface NetLive { host: string; latency: number | null; avg: number | null; jitter: number | null; lossPct: number | null; samples: number }
+export interface MemCounters { pagesPerSec: number | null; pageReadsPerSec: number | null; commitPct: number | null; pageFileUsagePct: number | null }
 
 export interface GpuMetrics {
   name: string;
@@ -50,6 +68,8 @@ export interface FpsMetrics {
   cpuBusyMs: number | null;
   gpuBusyMs: number | null;
   sampleCount: number;
+  tickP99Ms: number;      // 99th percentile frame time within the last tick
+  tickMaxMs: number;
 }
 
 export interface LiveMetrics {
@@ -61,6 +81,9 @@ export interface LiveMetrics {
   fortnite: FortniteState;
   fps: FpsMetrics | null;
   fpsStatus: string; // human readable reason when fps is null
+  net: NetLive | null;
+  netStatus: string;
+  mem: MemCounters | null;
 }
 
 export interface FortniteState {
@@ -88,7 +111,16 @@ export type StepStatus = 'pending' | 'running' | 'done' | 'unavailable' | 'error
 export interface ScanStep { id: ScanStepId; label: string; status: StepStatus; summary: string }
 
 export type Severity = 'good' | 'info' | 'warn' | 'bad';
-export interface Finding { id: string; area: string; severity: Severity; title: string; detail: string }
+export interface Finding {
+  id: string; area: string; severity: Severity; title: string; detail: string;
+  // Optional structured report (bottleneck diagnosis)
+  evidence?: string[]; fix?: string; expected?: string; risk?: 'none' | 'low' | 'medium'; rollback?: string;
+}
+
+export type BottleneckKind = 'cpu' | 'gpu' | 'vram' | 'ram' | 'thermal' | 'power' | 'engine' | 'network' | 'shader' | 'background';
+export interface Diagnosis extends Finding { kind: BottleneckKind; sharePct: number | null }
+
+export interface LoadProfileStats { id: 'low' | 'normal' | 'intense'; label: string; seconds: number; avgFps: number | null; worstSecond: number | null; bestSecond: number | null; avgP99Ms: number | null; avgCpu: number | null; avgGpu: number | null }
 
 export type OptimizationId =
   | 'game-mode-on'
@@ -147,7 +179,7 @@ export interface NetProgress { host: string; index: number; latency: number | nu
 
 // ---------- Fortnite ----------
 export interface FortniteSetting { key: string; label: string; current: string | null; recommended: string; ok: boolean | null; note: string }
-export interface FortniteConfigReport { found: boolean; path: string | null; settings: FortniteSetting[]; notes: string[]; frameRateLimit?: number | null }
+export interface FortniteConfigReport { found: boolean; path: string | null; settings: FortniteSetting[]; notes: string[]; frameRateLimit?: number | null; profile?: FortniteProfileId | null }
 
 export interface PerfDropEvent { ts: number; kind: 'fps-drop' | 'stutter'; detail: string; likelyCause: string }
 export interface SessionSummary {
@@ -158,12 +190,16 @@ export interface SessionSummary {
   recommendedCap: number | null; // Stable FPS Lock suggestion, null until 60 s of measured play
   avgCpu: number; avgGpu: number | null; peakVramMB: number | null; peakRamPct: number;
   drops: PerfDropEvent[];
+  maxFps: number | null; minFps: number | null; low1Session: number | null;
+  loads: LoadProfileStats[];
+  diagnosis: Diagnosis[];
 }
 
 // ---------- Benchmark ----------
-export interface BenchmarkRequest { label: 'before' | 'after'; durationSec: number; pingHost: string }
+export interface BenchmarkRequest { label: string; durationSec: number; pingHost: string }
 export interface BenchmarkResult {
-  id: string; label: 'before' | 'after'; ts: number; durationSec: number; fortniteRunning: boolean;
+  id: string; label: string; ts: number; durationSec: number; fortniteRunning: boolean; profile: string | null;
+  maxFps: number | null; minFps: number | null; jitter: number | null; loads: LoadProfileStats[];
   avgFps: number | null; low1: number | null; frameTimeStdMs: number | null; stabilityScore: number | null;
   avgCpu: number; avgGpu: number | null; avgRamMB: number; avgVramMB: number | null;
   pingAvg: number | null; packetLossPct: number | null; pingHost: string; notes: string[];
@@ -176,5 +212,12 @@ export interface Settings {
   netTargets: NetTarget[];
   trackFortniteWhileMinimized: boolean;
   autoBoost: boolean;
+  livePingHost: string;
+  autoCheckUpdates: boolean;
   autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
 }
+
+export type FortniteProfileId = 'competitive' | 'high-fps' | 'stability' | 'dx12';
+export interface FortniteProfileInfo { id: FortniteProfileId; name: string; summary: string; needsCap: boolean }
+
+export interface UpdateStatus { state: 'idle' | 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error' | 'disabled'; version?: string; percent?: number; message?: string }

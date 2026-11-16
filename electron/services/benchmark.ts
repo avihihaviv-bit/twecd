@@ -3,6 +3,8 @@ import type { BenchmarkProgress, BenchmarkRequest, BenchmarkResult, LiveMetrics 
 import { computeFrameStats } from './frameStats';
 import type { MonitorHub } from './monitor';
 import { pingSeries } from './network';
+import { loadProfiles, type Tick } from './sessionAnalysis';
+import { currentProfile } from './fortniteFiles';
 
 /** Records REAL metrics for a fixed duration. FPS fields stay null if no frames were captured. */
 export async function runBenchmark(req: BenchmarkRequest, hub: MonitorHub, onProgress: (p: BenchmarkProgress) => void): Promise<BenchmarkResult> {
@@ -18,10 +20,13 @@ export async function runBenchmark(req: BenchmarkRequest, hub: MonitorHub, onPro
   const stats = computeFrameStats(frames);
   const avg = (xs: (number | null | undefined)[]) => { const v = xs.filter((x): x is number => typeof x === 'number'); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
   const fortniteRunning = samples.some((s) => s.fortnite.running);
+  const fpsTicks: Tick[] = samples.filter((s) => s.fps).map((s) => ({ ts: s.ts, fps: s.fps!.fps, p99Ms: s.fps!.tickP99Ms, cpuBusyMs: s.fps!.cpuBusyMs, gpuBusyMs: s.fps!.gpuBusyMs, cpu: s.cpu.usage, maxCore: Math.max(0, ...s.cpu.perCore), gpu: s.gpu?.usage ?? null, vramPct: null, ramPct: s.ram.percent, pagesPerSec: null, cpuTemp: null, gpuTemp: null, gpuReasons: [], ping: null, pingMeasured: false, stutters: 0, bgAppsMB: null }));
   const notes: string[] = [];
   if (!stats) notes.push(fortniteRunning ? 'FPS not captured (PresentMon unavailable or needs administrator rights).' : 'Fortnite was not running: FPS not measured. Benchmark in the same Fortnite scene for a fair comparison.');
   return {
-    id: randomUUID(), label: req.label, ts: start, durationSec: req.durationSec, fortniteRunning,
+    id: randomUUID(), label: req.label, ts: start, durationSec: req.durationSec, fortniteRunning, profile: currentProfile(),
+    maxFps: fpsTicks.length ? Math.max(...fpsTicks.map((t) => t.fps)) : null, minFps: fpsTicks.length ? Math.min(...fpsTicks.map((t) => t.fps)) : null,
+    jitter: net.jitter, loads: loadProfiles(fpsTicks),
     avgFps: stats?.avgFps ?? null, low1: stats?.low1Fps ?? null, frameTimeStdMs: stats?.stdMs ?? null, stabilityScore: stats?.stabilityScore ?? null,
     avgCpu: avg(samples.map((s) => s.cpu.usage)) ?? 0, avgGpu: avg(samples.map((s) => s.gpu?.usage)),
     avgRamMB: avg(samples.map((s) => s.ram.usedMB)) ?? 0, avgVramMB: avg(samples.map((s) => s.gpu?.vramUsedMB)),

@@ -4,12 +4,14 @@ import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import type { NetContext, NetTarget, NetTargetResult } from '../../shared/types';
 import { api, errMsg, fmt } from '../lib/api';
 import { useApp } from '../lib/store';
-import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
+import { Badge, Card, Empty, LiveChart, PageHeader, Stat } from '../components/ui';
 
 const COLORS = ['#39FF14', '#18C77A', '#7dd3fc', '#ffb020', '#c084fc', '#f472b6', '#facc15', '#fb7185', '#a3e635'];
 
 export default function Network() {
-  const { lastNet, setLastNet } = useApp();
+  const { lastNet, setLastNet, live: liveM, history } = useApp();
+  const liveChart = useMemo(() => history.map((h, i) => ({ i, ping: h.ping })), [history]);
+  const ln = liveM?.net ?? null;
   const [targets, setTargets] = useState<NetTarget[]>([]);
   const [count, setCount] = useState(20);
   const [running, setRunning] = useState(false);
@@ -42,7 +44,7 @@ export default function Network() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="PING & NETWORK" subtitle="Real ICMP measurements to the destinations you choose. Finds whether latency comes from Wi-Fi, your local network, your ISP, or the destination. Nothing on your router is changed."
+      <PageHeader title="PING OPTIMIZER" subtitle="Real ICMP measurements. Finds whether latency comes from Wi-Fi, your local network, your ISP or the destination, so you know what to fix. Nothing on your router is changed, and no tool can promise 0 ms ping."
         right={<button className="btn-primary px-6" onClick={run} disabled={running || !targets.length}>{running ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />} {running ? 'TESTING...' : 'RUN NETWORK TEST'}</button>} />
       {err && <div className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">{err}</div>}
 
@@ -54,6 +56,10 @@ export default function Network() {
         <Stat label="Packet Loss" value={best ? fmt(best.lossPct, 0) : null} unit="%" tone={best && best.lossPct > 0 ? 'warn' : 'default'} />
         <Stat label="Wi-Fi Signal" value={ctx?.wifiSignalPct != null ? String(ctx.wifiSignalPct) : null} unit="%" />
       </div>
+
+      <Card className="mt-6" title={`Live connection · ${ln?.host ?? ''}`} right={ln ? <span className="num text-xs text-muted">now {fmt(ln.latency, 0, ' ms')} · avg {fmt(ln.avg, 1, ' ms')} · jitter {fmt(ln.jitter, 1, ' ms')} · loss {fmt(ln.lossPct, 0, '%')}</span> : null}>
+        <LiveChart data={liveChart} series={[{ key: 'ping', name: 'Ping', color: '#c084fc' }]} max="auto" unit=" ms" height={160} area={false} />
+      </Card>
 
       {r && (
         <div className="card mt-6 flex items-start gap-4 p-5">

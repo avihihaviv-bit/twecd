@@ -6,6 +6,7 @@ import type { MonitorHub } from './monitor';
 import { pingSeries, getNetContext } from './network';
 import { diagnose } from './ping';
 import { friendlyName } from './processCatalog';
+import { INTEL_SAFE_MICROCODE, isRaptorLake } from './winProbe';
 import { getBackgroundRecording, getGameMode, getHags, listPowerSchemes, listProcesses, listStartupApps, scanTemp, regQuery, dxFlagOn, DX_GLOBAL, DX_PREFS_KEY, HIGH_PERF, ULTIMATE } from './windows';
 
 const LABELS: Record<ScanStepId, string> = {
@@ -37,7 +38,15 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
       const avg = samples.length ? samples.reduce((a, m) => a + m.cpu.usage, 0) / samples.length : null;
       const t = info.cpu.topology;
       f({ id: 'cpu-model', area: 'CPU', severity: 'info', title: info.cpu.model, detail: `${info.cpu.logicalCores} threads${t ? `: ${t.pCoreThreads.length / 2} P-cores (HT) + ${t.eCoreThreads.length} E-cores` : ''}. Base clock ${info.cpu.baseClockMHz ?? '?'} MHz.` });
-      if (/1[34]\d00K/i.test(info.cpu.model)) f({ id: 'cpu-microcode', area: 'CPU', severity: 'info', title: 'Keep your motherboard BIOS updated', detail: 'Intel released microcode updates (0x12B and later) for 13th/14th-gen Core stability. Install the latest BIOS from your motherboard vendor and keep "Intel Default Settings" enabled.' });
+      if (isRaptorLake(info.cpu.model)) {
+        const mc = info.platformInfo?.microcode ?? null;
+        const bios = info.platformInfo;
+        const biosLine = bios?.biosVersion ? `BIOS ${bios.biosVersion}${bios.biosDate ? ` (${bios.biosDate})` : ''}${bios.board ? ` on ${bios.board}` : ''}.` : 'BIOS version unavailable.';
+        if (mc !== null && mc < INTEL_SAFE_MICROCODE) f({ id: 'cpu-microcode', area: 'CPU health', severity: 'bad', title: `Outdated CPU microcode 0x${mc.toString(16).toUpperCase()}`, detail: 'Intel 13th/14th-gen CPUs need microcode 0x12B or newer to prevent long-term instability (Vmin shift).',
+          evidence: [`Windows reports microcode revision 0x${mc.toString(16).toUpperCase()}; Intel's fix is 0x12B (Sept 2024) or later.`, biosLine],
+          fix: 'Install the latest BIOS from your motherboard manufacturer\'s website, then keep "Intel Default Settings" enabled. TWECD cannot and will not change BIOS settings.', expected: 'Long-term CPU stability; no direct FPS change.', risk: 'low', rollback: 'Handled by your motherboard\'s BIOS update tool.' });
+        else f({ id: 'cpu-microcode', area: 'CPU health', severity: mc !== null ? 'good' : 'info', title: mc !== null ? `CPU microcode 0x${mc.toString(16).toUpperCase()} is up to date` : 'Check your BIOS for Intel microcode 0x12B+', detail: `${biosLine} Keep "Intel Default Settings" enabled in BIOS for 13th/14th-gen stability.` });
+      }
       const temp = samples.at(-1)?.cpu.tempC ?? null;
       if (temp !== null && temp >= 95) f({ id: 'cpu-hot', area: 'CPU', severity: 'bad', title: `CPU at ${temp.toFixed(0)} °C`, detail: 'At this temperature the i5-14600K will thermal-throttle. Check cooler mounting, fan curve and case airflow.' });
       return ['done', `${avg !== null ? `${avg.toFixed(0)}% load` : 'load measured'}${temp !== null ? `, ${temp.toFixed(0)} °C` : ', temperature unavailable'}`];
@@ -49,6 +58,9 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
       if (!g) { f({ id: 'gpu-none', area: 'GPU', severity: 'warn', title: 'NVIDIA GPU telemetry unavailable', detail: `${hub.gpu.status}. Install/update the NVIDIA driver to enable GPU monitoring.` }); return ['unavailable', hub.gpu.status]; }
       f({ id: 'gpu-model', area: 'GPU', severity: 'info', title: g.name, detail: `Driver ${g.driver}. Keep the driver current via the NVIDIA App; new Game Ready drivers often include Fortnite fixes.` });
       if (g.throttleReasons.length) f({ id: 'gpu-throttle', area: 'GPU', severity: 'warn', title: 'GPU clock limited right now', detail: g.throttleReasons.join(', ') + '. Power-limit at full load is normal; thermal limits are not.' });
+      const d = info.display;
+      if (d?.currentHz && d.maxHz && d.currentHz < d.maxHz - 1) f({ id: 'disp-hz', area: 'Display', severity: 'bad', title: `Monitor runs at ${d.currentHz} Hz but supports ${d.maxHz} Hz`, detail: 'Windows is not using your monitor\'s full refresh rate, so extra frames are never shown.', evidence: [`Current mode ${d.width}x${d.height} @ ${d.currentHz} Hz; the monitor reports modes up to ${d.maxHz} Hz.`], fix: `Settings > System > Display > Advanced display > Choose a refresh rate: ${d.maxHz} Hz. Use DisplayPort (or a cable/port that supports it).`, expected: 'Smoother motion at high FPS.', risk: 'none', rollback: 'Pick the previous refresh rate in the same menu.' });
+      else if (d?.currentHz) f({ id: 'disp-hz', area: 'Display', severity: 'good', title: `Monitor: ${d.width}x${d.height} @ ${d.currentHz} Hz`, detail: d.maxHz ? `Matches the highest refresh the monitor reports (${d.maxHz} Hz). G-SYNC/VRR status is set in NVIDIA Control Panel and is not readable by TWECD.` : 'Highest supported refresh rate not reported by Windows; check Settings > Display > Advanced display.' });
       if (g.tempC !== null && g.tempC >= 83) f({ id: 'gpu-hot', area: 'GPU', severity: 'warn', title: `GPU at ${g.tempC} °C`, detail: 'Improve airflow or clean dust filters; high temperatures reduce boost clocks.' });
       recs.push({ id: 'nv-panel', optimizationId: null, area: 'NVIDIA', title: 'NVIDIA settings for Fortnite (manual)', why: 'These driver settings help high-FPS play. TWECD does not change GPU clocks, voltage, or firmware.', change: 'In NVIDIA App > Graphics > Fortnite: Power management mode = Prefer maximum performance, Vertical sync = Off, Low Latency Mode = On (Reflex in-game takes over), Shader cache size = Driver default or larger.', impact: 'medium', reversible: true, selectedByDefault: false });
       return ['done', `${g.name}, ${g.usage ?? '?'}% load, ${g.tempC ?? '?'} °C`];
@@ -67,7 +79,8 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
     await step('ram', async () => {
       const r = samples.at(-1)?.ram;
       if (!r) return ['unavailable', 'No sample'];
-      if (info.ram.channelsHint === 'single') f({ id: 'ram-single', area: 'RAM', severity: 'bad', title: 'RAM appears to run in single channel', detail: 'Only one memory module was detected. Dual channel (2 x 8 GB) can noticeably raise FPS and 1% lows on Intel CPUs.' });
+      if (info.ram.channelsHint === 'single') f({ id: 'ram-single', area: 'RAM', severity: 'bad', title: 'RAM runs in single channel', detail: 'Dual channel can noticeably raise FPS and 1% lows on Intel CPUs.', evidence: [info.ram.channelEvidence ?? ''], fix: 'Install memory in matched pairs in the slots your motherboard manual marks for dual channel (usually A2 + B2).', expected: 'Higher 1% lows in CPU-bound scenes.', risk: 'low', rollback: 'Move the module back.' });
+      else if (info.ram.channelsHint) f({ id: 'ram-dual', area: 'RAM', severity: 'good', title: 'Dual-channel memory', detail: info.ram.channelEvidence ?? '' });
       const speed = info.ram.modules[0]?.speedMHz;
       if (speed) f({ id: 'ram-speed', area: 'RAM', severity: 'info', title: `Memory running at ${speed} MT/s (${info.ram.modules[0]?.type ?? 'unknown type'})`, detail: 'If your kit is rated faster, enable XMP in BIOS. TWECD does not change BIOS settings.' });
       if (r.percent >= 75) f({ id: 'ram-high', area: 'RAM', severity: 'warn', title: `${r.percent.toFixed(0)}% RAM in use before gaming`, detail: 'Fortnite commonly needs several GB. Closing background apps lowers stutter risk.' });
@@ -151,10 +164,23 @@ export async function runScan(info: StaticInfo, hub: MonitorHub, onStep: (s: Sca
         vramPct: m.gpu?.vramUsedMB != null && m.gpu.vramTotalMB ? (m.gpu.vramUsedMB / m.gpu.vramTotalMB) * 100 : null,
         ramPct: m.ram.percent, cpuBusyMs: m.fps?.cpuBusyMs, gpuBusyMs: m.fps?.gpuBusyMs, frameMs: m.fps?.frameTimeAvgMs,
       }));
+      const sess = hub.getSession();
+      const s = sess.current ?? sess.last;
+      if (s && s.diagnosis.length) {
+        findings.push(...s.diagnosis);
+        const hz = info.display?.currentHz;
+        if (hz && s.sustainedFps) {
+          const advice = s.sustainedFps >= hz
+            ? `Your PC holds ${Math.round(s.sustainedFps)} FPS, above your ${hz} Hz refresh: lock at ${hz} (or Unlimited for lowest latency).`
+            : `Your PC holds ${Math.round(s.sustainedFps)} FPS 90% of the time, below your ${hz} Hz refresh: a Stable FPS Lock at ${s.recommendedCap ?? '-'} gives the most even frame pacing.`;
+          findings.push({ id: 'fps-vs-hz', area: 'Frame rate', severity: 'info', title: 'Frame-rate setting for your monitor', detail: advice, evidence: [`Last session: avg ${s.avgFps?.toFixed(0)} FPS, best second ${s.maxFps?.toFixed(0)}, worst second ${s.minFps?.toFixed(0)}.`], fix: 'Use Stable FPS Lock on the FPS Optimizer page.', risk: 'none', rollback: 'Set Unlimited.' });
+        }
+        return ['done', `From your last match: ${s.diagnosis[0].title}`];
+      }
       const b = analyzeBottleneck(ps);
       findings.push(...b);
       const fn = hub.latest?.fortnite.running;
-      return ['done', b.length ? b.map((x) => x.title).join('; ') : fn ? 'No bottleneck detected' : 'No bottleneck at idle (run with Fortnite open for in-game analysis)'];
+      return ['done', b.length ? b.map((x) => x.title).join('; ') : fn ? 'No bottleneck detected yet' : 'Play one match with TWECD open for an in-game bottleneck report'];
     });
   } finally {
     release();

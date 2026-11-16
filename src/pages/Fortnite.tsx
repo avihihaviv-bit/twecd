@@ -5,6 +5,8 @@ import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, PageHeader, Stat } from '../components/ui';
 import { FpsLock } from '../components/FpsLock';
+import { Profiles } from '../components/Profiles';
+import { FindingGrid, LoadProfiles } from '../components/Report';
 
 export default function Fortnite() {
   const { live, info } = useApp();
@@ -36,7 +38,7 @@ export default function Fortnite() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="FORTNITE EXTREME MODE" subtitle="Detects Fortnite automatically, measures it while you play, and recommends settings for maximum stable FPS. TWECD only edits Fortnite's settings file (with a backup), never the game itself, its memory or anti-cheat."
+      <PageHeader title="FORTNITE MODE" subtitle="Detects Fortnite automatically, measures it while you play, and recommends settings for maximum stable FPS. TWECD only edits Fortnite's settings file (with a backup), never the game itself, its memory or anti-cheat."
         right={<button className="btn-primary px-6" disabled={!info?.isWindows} onClick={async () => setMsg((await api().launchFortnite()).message)}><Play size={16} /> START FORTNITE</button>} />
       {msg && <div className="-mt-3 mb-4 text-sm text-neon2">{msg}</div>}
 
@@ -60,6 +62,7 @@ export default function Fortnite() {
         </button>
       </div>
 
+      <div className="mb-6"><Profiles current={cfg?.found ? cfg.profile ?? null : undefined} onChanged={load} /></div>
       <div className="mb-6"><FpsLock /></div>
 
       <div className="grid grid-cols-6 gap-3">
@@ -70,6 +73,13 @@ export default function Fortnite() {
         <Stat label="VRAM" value={running && vramPct !== null ? vramPct.toFixed(0) : null} unit="%" />
         <Stat label="Fortnite RAM" value={running ? gb(live?.fortnite.memMB) : null} />
       </div>
+
+      {s && (s.loads.length > 0 || s.diagnosis.length > 0) && (
+        <div className="mt-6 grid grid-cols-1 gap-6">
+          <Card title={`Scene-load profiles ${sess.current ? '(this match)' : '(last match)'}`}><LoadProfiles loads={s.loads} /></Card>
+          {s.diagnosis.length > 0 && <Card title="Why FPS dropped"><FindingGrid items={s.diagnosis} /></Card>}
+        </div>
+      )}
 
       <div className="mt-6 grid grid-cols-[1.4fr_1fr] gap-6">
         <Card title="Recommended graphics settings (RTX 5060 + i5-14600K)" right={<button className="btn-ghost !py-1 text-xs" onClick={load}><RefreshCw size={13} /> Re-read</button>}>

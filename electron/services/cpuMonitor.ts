@@ -1,14 +1,9 @@
 import os from 'node:os';
-import { spawn, type ChildProcess } from 'node:child_process';
-import readline from 'node:readline';
 import si from 'systeminformation';
-import { isWin } from './exec';
 
 /** Per-core CPU utilisation from OS time counters (no external process), plus effective clock and temperature when supported. */
 export class CpuMonitor {
   private prev = os.cpus().map((c) => c.times);
-  private perfChild: ChildProcess | null = null;
-  perfPct: number | null = null; // Windows "% Processor Performance" (relative to base clock)
   tempC: number | null = null;
   tempSupported = true;
   private lastTemp = 0;
@@ -37,19 +32,4 @@ export class CpuMonitor {
     } catch { this.tempSupported = false; this.tempC = null; }
   }
 
-  startClock() {
-    if (!isWin || this.perfChild) return;
-    try {
-      this.perfChild = spawn('typeperf', ['\\Processor Information(_Total)\\% Processor Performance', '-si', '2'], { windowsHide: true });
-    } catch { return; }
-    const rl = readline.createInterface({ input: this.perfChild.stdout! });
-    rl.on('line', (l) => {
-      const m = l.match(/^"[^"]*","([\d.]+)"/);
-      if (m) this.perfPct = parseFloat(m[1]);
-    });
-    this.perfChild.on('error', () => { this.perfChild = null; });
-    this.perfChild.on('exit', () => { this.perfChild = null; });
-  }
-
-  stopClock() { this.perfChild?.kill(); this.perfChild = null; }
 }

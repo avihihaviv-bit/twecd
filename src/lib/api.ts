@@ -1,7 +1,7 @@
 import type {
   ApplyItemResult, ApplyRequest, ApplyResult, BenchmarkProgress, BenchmarkRequest, BenchmarkResult, ChangeLogEntry,
   FortniteConfigReport, LiveMetrics, NetContext, NetProgress, NetTestRequest, NetTestResult, ProcessInfo, ScanResult,
-  ScanStep, SessionSummary, Settings, StaticInfo,
+  ScanStep, SessionSummary, Settings, StaticInfo, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
 } from '../../shared/types';
 
 type Off = () => void;
@@ -26,6 +26,13 @@ export interface TwecdApi {
   session(): Promise<{ current: SessionSummary | null; last: SessionSummary | null }>;
   setFortniteCap(cap: number): Promise<{ ok: boolean; message: string }>;
   closableCatalog(): Promise<{ exe: string; name: string }[]>;
+  fortniteProfiles(): Promise<FortniteProfileInfo[]>;
+  applyFortniteProfile(req: { profile: FortniteProfileId; cap?: number }): Promise<{ ok: boolean; message: string; changed: string[] }>;
+  updateCheck(): Promise<UpdateStatus>;
+  updateDownload(): Promise<UpdateStatus>;
+  updateInstall(): Promise<UpdateStatus>;
+  updateGet(): Promise<UpdateStatus>;
+  onUpdateStatus(cb: (s: UpdateStatus) => void): Off;
   benchRun(req: BenchmarkRequest): Promise<BenchmarkResult>;
   onBenchProgress(cb: (p: BenchmarkProgress) => void): Off;
   benchList(): Promise<BenchmarkResult[]>;

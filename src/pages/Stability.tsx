@@ -1,4 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type { SessionSummary } from '../../shared/types';
+import { api } from '../lib/api';
+import { FindingGrid, LoadProfiles } from '../components/Report';
+import Benchmark from './Benchmark';
 import { Target } from 'lucide-react';
 import { fmt } from '../lib/api';
 import { useApp } from '../lib/store';
@@ -9,6 +13,9 @@ const TARGET = 750;
 
 export default function Stability() {
   const { live, history, info } = useApp();
+  const [sess, setSess] = useState<{ current: SessionSummary | null; last: SessionSummary | null }>({ current: null, last: null });
+  useEffect(() => { const t = () => api().session().then(setSess); t(); const iv = setInterval(t, 3000); return () => clearInterval(iv); }, []);
+  const s = sess.current ?? sess.last;
   const f = live?.fps ?? null;
   const data = useMemo(() => history.map((h, i) => ({ i, fps: h.fps, low1: h.low1 })), [history]);
   const score = f?.stabilityScore ?? null;
@@ -22,16 +29,18 @@ export default function Stability() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="FPS STABILITY ENGINE" subtitle="Consistent frame delivery matters more than peak FPS. All values are measured from real frame times captured with PresentMon while Fortnite runs." />
+      <PageHeader title="FPS OPTIMIZER" subtitle="Consistent frame delivery and 1% lows matter more than peak FPS. Every value is measured from real frame times captured with PresentMon (ETW) while Fortnite runs; nothing is injected into the game." />
       {!info?.presentMon.available && (
         <div className="mb-5 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-warn">PresentMon is not installed, so FPS and frame times are unavailable. The installer bundles it; for development builds, set its path in Settings.</div>
       )}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-7 gap-3">
         <Stat label="Current FPS" value={f ? fmt(f.fps) : null} tone="neon" big />
-        <Stat label="Average FPS" value={f ? fmt(f.avg) : null} sub={f ? `${f.sampleCount} frames` : live?.fpsStatus} />
-        <Stat label="1% Low" value={f ? fmt(f.low1) : null} />
+        <Stat label="Average FPS" value={f ? fmt(f.avg) : s?.avgFps != null ? fmt(s.avgFps) : null} sub={f ? `${f.sampleCount} frames` : s ? 'last match' : live?.fpsStatus} />
+        <Stat label="Max FPS (best second)" value={s?.maxFps != null ? fmt(s.maxFps) : null} sub="usually a light/empty scene" />
+        <Stat label="Min FPS (worst second)" value={s?.minFps != null ? fmt(s.minFps) : null} />
+        <Stat label="1% Low (match)" value={s?.low1Session != null ? fmt(s.low1Session) : f ? fmt(f.low1) : null} sub={s?.low1Session != null ? 'every frame of the match' : f ? 'rolling window' : undefined} />
         <Stat label="0.1% Low" value={f?.low01 != null ? fmt(f.low01) : null} />
-        <Stat label="Stability Score" value={score !== null ? String(score) : null} unit="/100" tone={scoreTone} />
+        <Stat label="Stability Score" value={score !== null ? String(score) : s?.stabilityScore != null ? String(s.stabilityScore) : null} unit="/100" tone={scoreTone} />
       </div>
 
       <div className="mt-6 grid grid-cols-[1fr_320px] gap-6">
@@ -45,7 +54,21 @@ export default function Stability() {
         </Card>
       </div>
 
+      <div className="mt-6">
+        <Card title={`Performance by scene load ${sess.current ? '(this match)' : s ? '(last match)' : ''}`} right={<span className="text-xs text-muted">Peak FPS in empty scenes is not your real gameplay FPS</span>}>
+          <LoadProfiles loads={s?.loads ?? []} />
+        </Card>
+      </div>
+
+      <div className="mt-6">
+        <Card title="Why FPS drops: bottleneck report" right={s ? <span className="text-xs text-muted">{s.fpsSamples} measured samples</span> : null}>
+          {s && s.diagnosis.length ? <FindingGrid items={s.diagnosis} /> : <div className="text-sm text-muted">Play one match with TWECD open (running as administrator for FPS capture). The report classifies each measured second as CPU-, GPU- or engine-limited and checks VRAM, RAM, thermals, power limits, shader compilation, background apps and network, with the evidence for each.</div>}
+        </Card>
+      </div>
+
       <div className="mt-6"><FpsLock /></div>
+
+      <div className="mt-10"><Benchmark embedded /></div>
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         <Card title="FPS over time"><LiveChart data={data} series={[{ key: 'fps', name: 'FPS', color: '#39FF14' }, { key: 'low1', name: '1% low', color: '#18C77A' }]} max="auto" unit="" height={200} /></Card>

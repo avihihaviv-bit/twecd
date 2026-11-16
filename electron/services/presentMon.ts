@@ -27,6 +27,18 @@ export class PresentMonCapture {
   private median = 0;
   processName = '';
   private triedLegacy = false;
+  // Whole-session frame-time histogram: 0.05 ms bins up to 200 ms (exact enough for 1% low, constant memory).
+  private hist = new Uint32Array(4001);
+  private histN = 0;
+  resetSession() { this.hist.fill(0); this.histN = 0; }
+  /** 1% low FPS over every frame captured since resetSession(). Null with < 1000 frames. */
+  sessionLow1(): number | null {
+    if (this.histN < 1000) return null;
+    const target = this.histN * 0.99;
+    let acc = 0;
+    for (let i = 0; i < this.hist.length; i++) { acc += this.hist[i]; if (acc >= target) return 1000 / Math.max(0.05, i * 0.05); }
+    return null;
+  }
 
   constructor(private exePath: () => string | null) {}
 
@@ -77,6 +89,7 @@ export class PresentMonCapture {
     if (cpu !== null) { this.cpuBusy.push(cpu); if (this.cpuBusy.length > 600) this.cpuBusy.shift(); }
     if (gpu !== null) { this.gpuBusy.push(gpu); if (this.gpuBusy.length > 600) this.gpuBusy.shift(); }
     if (this.recording) this.recording.push(ft);
+    this.hist[Math.min(4000, Math.round(ft / 0.05))]++; this.histN++;
     if (this.median > 0 && ft > this.median * 2.5 && ft - this.median > 8) this.totalStutters++;
   }
 
@@ -87,6 +100,8 @@ export class PresentMonCapture {
     if (!stats || sec.length === 0) return null;
     this.median = stats.medianMs;
     const secMs = sec.reduce((a, b) => a + b, 0);
+    const secSorted = [...sec].sort((a, b) => a - b);
+    const tickP99Ms = secSorted[Math.min(secSorted.length - 1, Math.ceil(secSorted.length * 0.99) - 1)];
     const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
     return {
       source: 'presentmon', processName: this.processName,
@@ -94,6 +109,7 @@ export class PresentMonCapture {
       frameTimesMs: this.frames.slice(-GRAPH), frameTimeAvgMs: stats.avgMs, frameTimeStdMs: stats.stdMs,
       spikes: stats.spikes, stutters: stats.stutters, stabilityScore: stats.stabilityScore,
       cpuBusyMs: mean(this.cpuBusy), gpuBusyMs: mean(this.gpuBusy), sampleCount: stats.count,
+      tickP99Ms, tickMaxMs: secSorted[secSorted.length - 1],
     };
   }
 

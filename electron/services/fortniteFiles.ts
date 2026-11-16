@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { FortniteConfigReport } from '../../shared/types';
-import { analyzeFortniteConfig, applyMaxFps, setFrameRateLimit } from './fortniteConfig';
+import { analyzeFortniteConfig, applyMaxFps, applyProfile, detectProfile, setFrameRateLimit } from './fortniteConfig';
+import type { FortniteProfileId } from '../../shared/types';
 
 export function fortniteConfigPath(): string {
   const local = process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local');
@@ -13,7 +14,8 @@ export function fortniteConfigPath(): string {
 export function readFortniteConfig(): FortniteConfigReport {
   const p = fortniteConfigPath();
   try {
-    return analyzeFortniteConfig(readText(p).text, p);
+    const text = readText(p).text;
+    return { ...analyzeFortniteConfig(text, p), profile: detectProfile(text) };
   } catch {
     return { found: false, path: p, settings: [], notes: ['Fortnite settings file not found. Launch Fortnite once (and change any video setting) so it is created.'] };
   }
@@ -79,4 +81,25 @@ export function applyFortniteCap(backupDir: string, cap: number): { ok: boolean;
     return { ok: false, message: code === 'EPERM' || code === 'EACCES' ? 'The settings file is read-only. Right-click GameUserSettings.ini > Properties, untick "Read-only", then try again.' : `Could not write the settings file (${code ?? e}).` };
   }
   return { ok: true, message: cap === 0 ? 'FPS lock removed: Fortnite runs unlimited.' : `FPS locked at ${cap}. Start Fortnite to play with it.` };
+}
+
+export function currentProfile(): FortniteProfileId | null { try { return detectProfile(readText(fortniteConfigPath()).text); } catch { return null; } }
+export function isDx12(): boolean { try { return /dx12/i.test(readText(fortniteConfigPath()).text.match(/PreferredRHI=(\w+)/i)?.[1] ?? ''); } catch { return false; } }
+
+export function applyFortniteProfile(backupDir: string, id: FortniteProfileId, cap?: number): { ok: boolean; message: string; changed: string[] } {
+  const p = fortniteConfigPath();
+  if (!fs.existsSync(p)) return { ok: false, message: 'Fortnite settings file not found. Start Fortnite once, then try again.', changed: [] };
+  const src = readText(p);
+  let res: { text: string; changed: string[] };
+  try { res = applyProfile(src.text, id, cap); } catch (e) { return { ok: false, message: (e as Error).message, changed: [] }; }
+  if (res.changed.length === 0) return { ok: true, message: 'Fortnite already uses this profile.', changed: [] };
+  fs.mkdirSync(backupDir, { recursive: true });
+  const bak = fortniteBackupPath(backupDir);
+  if (!fs.existsSync(bak)) fs.copyFileSync(p, bak);
+  try { writeText(p, res.text, src.enc, src.bom); }
+  catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return { ok: false, message: code === 'EPERM' || code === 'EACCES' ? 'The settings file is read-only. Right-click GameUserSettings.ini > Properties, untick "Read-only", then try again.' : `Could not write the settings file (${code ?? e}).`, changed: [] };
+  }
+  return { ok: true, message: `Changed: ${[...new Set(res.changed)].join(', ')}. Start Fortnite to use it.`, changed: res.changed };
 }

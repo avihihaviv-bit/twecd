@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import type { ApplyResult, LiveMetrics, NetTestResult, ScanResult, ScanStep, StaticInfo } from '../../shared/types';
 import { api, hasBridge } from './api';
 
-export interface HistoryPoint { t: number; cpu: number; gpu: number | null; ram: number; vram: number | null; fps: number | null; low1: number | null; gpuTemp: number | null; cpuTemp: number | null }
+export interface HistoryPoint { t: number; cpu: number; gpu: number | null; ram: number; vram: number | null; fps: number | null; low1: number | null; gpuTemp: number | null; cpuTemp: number | null; ping: number | null; frameP99: number | null }
 
 export type BoostPhase = 'idle' | 'scanning' | 'review' | 'applying' | 'done';
 export interface BoostState { phase: BoostPhase; mode: 'scan' | 'boost'; steps: ScanStep[]; result: ScanResult | null; applied: ApplyResult | null; error: string | null }
@@ -37,7 +37,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const off = api().onMetrics((m) => {
       setLive(m);
       const vram = m.gpu?.vramUsedMB != null && m.gpu.vramTotalMB ? (m.gpu.vramUsedMB / m.gpu.vramTotalMB) * 100 : null;
-      hist.current = [...hist.current.slice(-(MAX - 1)), { t: m.ts, cpu: m.cpu.usage, gpu: m.gpu?.usage ?? null, ram: m.ram.percent, vram, fps: m.fps?.fps ?? null, low1: m.fps?.low1 ?? null, gpuTemp: m.gpu?.tempC ?? null, cpuTemp: m.cpu.tempC }];
+      hist.current = [...hist.current.slice(-(MAX - 1)), { t: m.ts, cpu: m.cpu.usage, gpu: m.gpu?.usage ?? null, ram: m.ram.percent, vram, fps: m.fps?.fps ?? null, low1: m.fps?.low1 ?? null, gpuTemp: m.gpu?.tempC ?? null, cpuTemp: m.cpu.tempC, ping: m.net?.latency ?? null, frameP99: m.fps?.tickP99Ms ?? null }];
       setHistory(hist.current);
     });
     const vis = () => void api().setVisible(document.visibilityState === 'visible');

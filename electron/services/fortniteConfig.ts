@@ -1,4 +1,4 @@
-import type { FortniteConfigReport, FortniteSetting } from '../../shared/types';
+import type { FortniteConfigReport, FortniteProfileId, FortniteProfileInfo, FortniteSetting } from '../../shared/types';
 
 export function parseIni(text: string): Map<string, string> {
   // Flat map "key" -> value (last wins). Fortnite keys are unique across the sections we read.
@@ -64,7 +64,7 @@ export function analyzeFortniteConfig(text: string, path: string): FortniteConfi
     ['sg.EffectsQuality', 'Effects', 0, 'Explosion/build effects; spikes during fights.'],
     ['sg.FoliageQuality', 'Foliage', 0, 'Less grass/bushes to draw.'],
     ['sg.AntiAliasingQuality', 'Anti-Aliasing', 0, 'Off for max FPS (Performance mode).'],
-    ['sg.ViewDistanceQuality', 'View Distance', 2, 'Medium/Far is a good balance; Epic costs CPU in late game.'],
+    ['sg.ViewDistanceQuality', 'View Distance', 3, 'Far is the high-FPS choice; Epic (Competitive profile) shows distant players earlier at a small CPU cost.'],
     ['sg.TextureQuality', 'Textures', 2, '8 GB VRAM handles Medium/High in Performance mode; lower if VRAM is near full.'],
     ['sg.ShadingQuality', 'Shading', 1, 'Low/Medium for high FPS.'],
   ];
@@ -90,7 +90,7 @@ export const MIN_STABLE_CAP = 200;
 
 // ---------- Max-FPS profile (written only with user confirmation, original is backed up) ----------
 const GUS = '/Script/FortniteGame.FortGameUserSettings';
-type Target = { section: string; key: string; value: string; label: string; onlyIfAbove?: number };
+type Target = { section: string; key: string; value: string; label: string; onlyIfAbove?: number; force?: boolean };
 
 /** Profile for the highest stable FPS on RTX 5060 8GB + i5-14600K. */
 export const MAX_FPS_PROFILE: Target[] = [
@@ -120,7 +120,9 @@ export const MAX_FPS_PROFILE: Target[] = [
  * Applies MAX_FPS_PROFILE to an ini text. Only touches listed keys, keeps every other line,
  * comment, order and line ending. Missing keys are added to their section (section created if absent).
  */
-export function applyMaxFps(text: string): { text: string; changed: string[] } {
+export function applyMaxFps(text: string): { text: string; changed: string[] } { return applyTargets(text, MAX_FPS_PROFILE); }
+
+function applyTargets(text: string, profile: Target[]): { text: string; changed: string[] } {
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
   const lines = text.split(/\r?\n/);
   const changed = new Set<string>();
@@ -128,12 +130,12 @@ export function applyMaxFps(text: string): { text: string; changed: string[] } {
   let cur = '';
   for (const l of lines) { const m = l.trim().match(/^\[(.+)\]$/); if (m) cur = m[1]; sectionOf.push(cur); }
 
-  for (const t of MAX_FPS_PROFILE) {
+  for (const t of profile) {
     const idx = lines.findIndex((l, i) => sectionOf[i] === t.section && l.trim().toLowerCase().startsWith(t.key.toLowerCase() + '='));
     if (idx >= 0) {
       const curVal = lines[idx].slice(lines[idx].indexOf('=') + 1).trim();
       if (t.onlyIfAbove !== undefined && parseFloat(curVal) <= t.onlyIfAbove) continue;
-      if (t.key === 'FrameRateLimit' && parseFloat(curVal) >= MIN_STABLE_CAP) continue; // keep the user's Stable FPS Lock
+      if (t.key === 'FrameRateLimit' && !t.force && parseFloat(curVal) >= MIN_STABLE_CAP) continue; // keep the user's Stable FPS Lock
       if (curVal.toLowerCase() === t.value.toLowerCase()) continue;
       lines[idx] = `${t.key}=${t.value}`;
       changed.add(t.label);
@@ -189,4 +191,47 @@ export function recommendCap(perSecondFps: number[]): { sustained: number; cap: 
   const step = sustained >= 100 ? 10 : 5;
   const cap = Math.max(30, Math.floor(sustained / step) * step);
   return { sustained, cap };
+}
+
+// ---------- Profiles ----------
+const without = (keys: string[]) => MAX_FPS_PROFILE.filter((t) => !keys.includes(t.key));
+
+export const PROFILES: Record<FortniteProfileId, FortniteProfileInfo> = {
+  'high-fps': { id: 'high-fps', name: 'High FPS', summary: 'Performance mode, unlimited FPS, everything heavy off. Highest peak and average FPS.', needsCap: false },
+  competitive: { id: 'competitive', name: 'Competitive Performance', summary: 'Performance mode with Epic view distance so distant players render earlier. Slightly more CPU work.', needsCap: false },
+  stability: { id: 'stability', name: 'Frame Time Stability', summary: 'High FPS settings plus a Stable FPS Lock at the FPS your PC holds 90% of the time. Smoothest frame pacing.', needsCap: true },
+  dx12: { id: 'dx12', name: 'DirectX 12 (visual)', summary: 'DirectX 12 with low settings for better image quality. Lower FPS; the first matches after an update stutter while shaders compile (do not clear the shader cache).', needsCap: false },
+};
+
+export function profileTargets(id: FortniteProfileId, cap?: number): Target[] {
+  switch (id) {
+    case 'high-fps': return MAX_FPS_PROFILE;
+    case 'competitive': return [...without(['sg.ViewDistanceQuality']), { section: 'ScalabilityGroups', key: 'sg.ViewDistanceQuality', value: '3', label: 'View Distance: Epic' }];
+    case 'stability':
+      if (!cap || cap < 30) throw new Error('Play one match with FPS capture first so TWECD can measure the right lock.');
+      return [...without(['FrameRateLimit']), { section: GUS, key: 'FrameRateLimit', value: cap.toFixed(6), label: `Frame Rate Limit: ${cap} FPS (Stable Lock)`, force: true }];
+    case 'dx12': return [
+      ...without(['PreferredRHI', 'PreferredFeatureLevel']),
+      { section: 'D3DRHIPreference', key: 'PreferredRHI', value: 'dx12', label: 'Rendering Mode: DirectX 12' },
+      { section: 'D3DRHIPreference', key: 'PreferredFeatureLevel', value: 'sm6', label: 'Rendering Mode: DirectX 12' },
+    ];
+  }
+}
+
+export function applyProfile(text: string, id: FortniteProfileId, cap?: number) { return applyTargets(text, profileTargets(id, cap)); }
+
+/** Which profile the current file matches (null = custom settings). */
+export function detectProfile(text: string): FortniteProfileId | null {
+  const ini = parseIni(text);
+  const lvl = ini.get('preferredfeaturelevel') ?? '';
+  const rhi = (ini.get('preferredrhi') ?? '').toLowerCase();
+  const cap = parseFloat(ini.get('frameratelimit') ?? 'NaN');
+  const vd = parseInt(ini.get('sg.viewdistancequality') ?? 'NaN', 10);
+  const heavyOff = ['sg.shadowquality', 'sg.effectsquality', 'sg.postprocessquality'].every((k) => ini.get(k) === '0');
+  if (!heavyOff) return null;
+  if (rhi === 'dx12') return 'dx12';
+  if (!/es31/i.test(lvl)) return null;
+  if (vd === 3) return 'competitive';
+  if (cap > 0) return 'stability';
+  return 'high-fps';
 }

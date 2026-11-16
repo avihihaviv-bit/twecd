@@ -1,4 +1,4 @@
-# TWECD GAMING BOOSTER – EXTREME EDITION
+# TWECD GAMING BOOSTER – ULTRA WIDE EXTREME EDITION
 
 Windows 11 desktop app for Fortnite players. Built and tuned for **RTX 5060 8GB · Intel i5-14600K · 16GB RAM**.
 
@@ -41,6 +41,16 @@ You can also build it on GitHub: push this folder to a repository and run the *B
 NVIDIA driver settings, Fortnite graphics settings, BIOS (XMP, microcode) and HAGS appear as **manual tips**. TWECD explains them but doesn't change them.
 
 ## Features
+
+**Ultra-wide interface** – 1600x950 by default (minimum 1350x800, maximizes on smaller screens). The sidebar has Dashboard, FPS Optimizer, Ping Optimizer, Fortnite Mode, System Optimizer, RAM Optimizer and Settings. The dashboard shows six live cards (FPS, CPU, GPU, RAM, ping and packet loss) and four wide graphs.
+
+- **Scene-load analysis** – each measured second of a match is classified as Low load (sky, empty scenes; this is where 900+ FPS peaks happen), Normal gameplay or Intense combat. Each class gets its own average, worst second and best second, so a peak in an empty scene never stands in for real gameplay FPS.
+- **Bottleneck report with evidence** – each second is classified as CPU-, GPU- or engine-limited using PresentMon CPU/GPU busy times. The report also checks VRAM, RAM and paging, thermal throttling, power limits, DX12 shader compilation, background apps and network. Each finding lists its evidence, the fix, the expected effect, the risk and how to roll it back.
+- **Fortnite profiles** – Competitive Performance, High FPS, Frame Time Stability (uses your measured Stable FPS Lock) and DirectX 12. You switch with one click, and the original settings file is backed up. Benchmarks record which profile was active, and you can compare any two runs.
+- **Monitor check** – shows your current and highest supported refresh rate (for example, a 520 Hz monitor left at 240 Hz) and gives frame-rate advice that matches your sustained FPS.
+- **Intel CPU health** – reads the microcode revision (0x12B+ check for 13th/14th gen), BIOS version and date, motherboard, clocks and throttling.
+- **RAM Optimizer** – dual vs single channel based on slot names, running vs rated speed, paging and hard faults, commit charge, page file use, memory-heavy apps and Fortnite's working set.
+- **Updates with consent** – the app checks for updates when it starts (you can turn this off). Downloading and installing each need your click.
 
 - **FPS Stability Engine** – current, average, 1% low and 0.1% low FPS, a frame-time graph, spike and stutter detection, a CPU vs GPU bottleneck verdict from per-frame busy times, and VRAM/RAM pressure. The **Stability Score** (0–100) is 50% (1% low ÷ average) + 30% frame-time consistency + 20% stutter rate. 750 FPS is shown as an aspirational target, not a promise.
 - **RTX 5060** – usage, VRAM, temperature, clock, power and limit, driver version, and active clock limits (power or thermal). Data comes from `nvidia-smi`, which ships with the NVIDIA driver.

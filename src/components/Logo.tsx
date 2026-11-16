@@ -17,7 +17,7 @@ export function Logo() {
       <LogoMark />
       <div className="leading-none">
         <div className="font-display text-xl font-extrabold tracking-[0.2em] text-white">TWECD</div>
-        <div className="mt-1 text-[10px] font-semibold tracking-[0.32em] text-neon">EXTREME EDITION</div>
+        <div className="mt-1 text-[10px] font-semibold tracking-[0.2em] text-neon">ULTRA WIDE EXTREME</div>
       </div>
     </div>
   );

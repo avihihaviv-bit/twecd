@@ -1,33 +1,24 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ProcessInfo } from '../../shared/types';
+import { useMemo } from 'react';
 import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Bar, Card, LiveChart, PageHeader, Ring, Stat } from '../components/ui';
 
 export default function Hardware() {
   const { live, history, info } = useApp();
-  const [procs, setProcs] = useState<ProcessInfo[]>([]);
-  useEffect(() => {
-    let alive = true;
-    const load = () => api().processes().then((p) => alive && setProcs(p)).catch(() => undefined);
-    load();
-    const t = setInterval(load, 5000);
-    return () => { alive = false; clearInterval(t); };
-  }, []);
   const g = live?.gpu ?? null;
   const vramPct = g?.vramUsedMB != null && g.vramTotalMB ? (g.vramUsedMB / g.vramTotalMB) * 100 : null;
   const chart = useMemo(() => history.map((h, i) => ({ i, cpu: h.cpu, gpu: h.gpu, ram: h.ram, vram: h.vram })), [history]);
   const temps = useMemo(() => history.map((h, i) => ({ i, gpuTemp: h.gpuTemp, cpuTemp: h.cpuTemp })), [history]);
   const topo = info?.cpu.topology ?? null;
+  const pi = info?.platformInfo ?? null;
+  const disp = info?.display ?? null;
   const pCores = topo && live ? topo.pCoreThreads.map((i) => live.cpu.perCore[i] ?? 0) : null;
   const eCores = topo && live ? topo.eCoreThreads.map((i) => live.cpu.perCore[i] ?? 0) : null;
   const avg = (a: number[] | null) => (a && a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-  const fnMem = live?.fortnite.memMB ?? null;
-  const bgMem = procs.filter((p) => p.category === 'closable').reduce((a, p) => a + p.memMB, 0);
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="HARDWARE" subtitle="Live telemetry from your GPU, CPU and memory. Read-only: TWECD never overclocks, changes voltages, disables cores or touches firmware." />
+      <PageHeader title="SYSTEM OPTIMIZER" subtitle="Live telemetry from your RTX 5060 and i5-14600K, CPU health and display configuration. TWECD never overclocks, changes voltages, disables cores or touches firmware." />
       <div className="mb-6 card flex items-center justify-around py-6">
         <Ring label="CPU" value={live?.cpu.usage ?? null} sub={live?.cpu.effectiveClockMHz ? `${(live.cpu.effectiveClockMHz / 1000).toFixed(2)} GHz` : undefined} />
         <Ring label="GPU" value={g?.usage ?? null} sub={g?.clockMHz != null ? `${g.clockMHz} MHz` : undefined} />
@@ -82,30 +73,33 @@ export default function Hardware() {
         </div>
       </Card>
 
-      {/* RAM */}
-      <div className="mt-6 grid grid-cols-[1fr_1fr] gap-6">
-        <Card title="Memory (16 GB)">
-          <div className="grid grid-cols-2 gap-3">
-            <Stat label="Total" value={live ? gb(live.ram.totalMB) : null} />
-            <Stat label="Available" value={live ? gb(live.ram.availableMB) : null} tone={live && live.ram.availableMB < 3000 ? 'warn' : 'default'} />
-            <Stat label="Used" value={live ? gb(live.ram.usedMB) : null} sub={live ? `${live.ram.percent.toFixed(0)}%` : undefined} />
-            <Stat label="Fortnite" value={fnMem !== null ? gb(fnMem) : null} sub={live?.fortnite.running ? 'Working set' : 'Not running'} />
+      {/* CPU HEALTH + DISPLAY */}
+      <div className="mt-6 grid grid-cols-2 gap-6">
+        <Card title="Intel CPU health (i5-14600K)">
+          <div className="grid grid-cols-[150px_1fr] gap-y-2 text-sm">
+            <span className="text-muted">Microcode</span>
+            <span>{pi?.microcode != null ? <><b className="num text-white">0x{pi.microcode.toString(16).toUpperCase()}</b> {pi.microcode >= 0x12b ? <Badge tone="good">0x12B+ OK</Badge> : <Badge tone="bad">Older than 0x12B</Badge>}</> : 'Unavailable'}</span>
+            <span className="text-muted">BIOS</span><span className="text-white">{pi?.biosVersion ? `${pi.biosVendor ?? ''} ${pi.biosVersion}${pi.biosDate ? ` (${pi.biosDate})` : ''}` : 'Unavailable'}</span>
+            <span className="text-muted">Motherboard</span><span className="text-white">{pi?.board ?? 'Unavailable'}</span>
+            <span className="text-muted">Temperature</span><span className="text-white">{live?.cpu.tempC != null ? `${live.cpu.tempC} °C` : 'Unavailable (needs a motherboard sensor driver)'}</span>
+            <span className="text-muted">Effective clock</span><span className="text-white">{live?.cpu.effectiveClockMHz != null ? `${(live.cpu.effectiveClockMHz / 1000).toFixed(2)} GHz` : 'Unavailable'}</span>
           </div>
-          <div className="mt-3 text-sm text-muted">
-            {info?.ram.modules.length ? <>Modules: {info.ram.modules.map((m) => `${(m.sizeMB / 1024).toFixed(0)} GB${m.speedMHz ? ` @ ${m.speedMHz}` : ''}`).join(' + ')} {info.ram.channelsHint === 'single' && <Badge tone="bad">Single channel</Badge>}</> : 'Module layout unavailable.'}
+          <div className="mt-4 rounded-xl border border-line bg-panel2/60 p-3 text-[13px] text-[#c3cdc7]">
+            For 13th/14th-gen Intel CPUs: install the <b className="text-white">latest BIOS from your motherboard manufacturer</b> (it contains Intel's 0x12B+ microcode) and keep <b className="text-white">Intel Default Settings</b> enabled. TWECD never changes voltages, power limits or overclocking settings.
           </div>
-          <div className="mt-2 text-sm text-muted">Closable background apps currently use <b className="text-white">{gb(bgMem)}</b>. TWECD does not use fake "RAM cleaning"; freeing memory means closing apps you don't need.</div>
         </Card>
-        <Card title="Top memory users">
-          <div className="max-h-[300px] overflow-y-auto pr-1">
-            {procs.slice(0, 15).map((p) => (
-              <div key={p.pid} className="flex items-center gap-3 border-b border-line/60 py-1.5 text-sm">
-                <span className="flex-1 truncate">{p.name}</span>
-                {p.category !== 'other' && <Badge tone={p.category === 'closable' ? 'warn' : p.category === 'game' ? 'good' : 'muted'}>{p.category}</Badge>}
-                <span className="num w-20 text-right text-muted">{p.memMB.toFixed(0)} MB</span>
-              </div>
-            ))}
+        <Card title="Display (refresh rate)">
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="Current refresh" value={disp?.currentHz != null ? String(disp.currentHz) : null} unit="Hz" tone={disp?.currentHz && disp.maxHz && disp.currentHz < disp.maxHz - 1 ? 'bad' : 'neon'} />
+            <Stat label="Highest supported" value={disp?.maxHz != null ? String(disp.maxHz) : null} unit="Hz" />
+            <Stat label="Resolution" value={disp?.width ? `${disp.width}x${disp.height}` : null} />
           </div>
+          <div className="mt-3 text-sm">
+            {disp?.currentHz && disp.maxHz && disp.currentHz < disp.maxHz - 1
+              ? <span className="text-bad">Windows is not using your monitor's full refresh rate. Settings &gt; System &gt; Display &gt; Advanced display &gt; {disp.maxHz} Hz (use DisplayPort).</span>
+              : disp?.currentHz ? <span className="text-neon2">Windows uses the highest refresh rate the monitor reports.</span> : <span className="text-muted">Refresh rate unavailable on this system.</span>}
+          </div>
+          <p className="mt-3 text-xs text-muted">G-SYNC / VRR and NVIDIA display settings are not readable without NVIDIA's private API: check NVIDIA Control Panel &gt; Set up G-SYNC. With a {disp?.currentHz ?? 'high'} Hz monitor, use Stable FPS Lock on the FPS Optimizer page to match your sustained FPS.</p>
         </Card>
       </div>
 

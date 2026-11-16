@@ -15,18 +15,22 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run dist
-        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+      - id: ver
+        shell: bash
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with: { name: TWECD-Setup, path: release/TWECD-*.* }
-      - name: Publish download (always at releases/latest)
+      - name: Publish release (download link always points to the latest)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: TWECD GAMING BOOSTER - EXTREME EDITION v1.0.${{ github.run_number }}
+          tag_name: v${{ steps.ver.outputs.v }}
+          name: TWECD GAMING BOOSTER v${{ steps.ver.outputs.v }}
           make_latest: true
           files: |
             release/TWECD-Setup.exe
+            release/TWECD-Setup.exe.blockmap
+            release/latest.yml
             release/TWECD-Portable.zip
           body: |
-            Download **TWECD-Setup.exe**, double-click to install. A desktop shortcut is created automatically.
-            Windows may show "Windows protected your PC" because the installer is not code-signed: click "More info" then "Run anyway".
+            Download **TWECD-Setup.exe** and double-click to install. A desktop shortcut is created automatically.
+            Installed copies (v1.3.0+) offer this update inside the app and only install it after you click.

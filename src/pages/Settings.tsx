@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FolderOpen, RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
-import type { ApplyItemResult, ChangeLogEntry, Settings as S } from '../../shared/types';
+import type { ApplyItemResult, ChangeLogEntry, Settings as S, UpdateStatus } from '../../shared/types';
 import { api, errMsg } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, PageHeader } from '../components/ui';
@@ -13,6 +13,9 @@ export default function Settings() {
   const [restored, setRestored] = useState<ApplyItemResult[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<{ exe: string; name: string }[]>([]);
+  const [upd, setUpd] = useState<UpdateStatus>({ state: 'idle' });
+  useEffect(() => { api().updateGet().then(setUpd); return api().onUpdateStatus(setUpd); }, []);
+  const [pingHost, setPingHost] = useState('');
   useEffect(() => { api().closableCatalog().then(setCatalog); }, []);
   const reload = () => { api().settingsGet().then(setS); api().changeLog().then(setLog); api().hasBackup().then(setHasBackup); };
   useEffect(reload, []);
@@ -60,7 +63,11 @@ export default function Settings() {
                 <input type="checkbox" className="accent-[#39FF14]" checked={s.trackFortniteWhileMinimized} onChange={(e) => patch({ trackFortniteWhileMinimized: e.target.checked })} />
                 Keep recording Fortnite sessions while TWECD is minimized (light 2 s sampling)
               </label>
-              <p className="text-xs text-muted">When the window is minimized, all other monitoring stops to keep TWECD lightweight.</p>
+              <div className="flex items-center gap-2"><span className="label w-40">Live ping host</span>
+                <input id="live-ping-host" value={pingHost || s.livePingHost} onChange={(e) => setPingHost(e.target.value)} className="w-44 rounded-lg border border-line bg-black/30 px-2 py-1 text-sm outline-none focus:border-neon/50" />
+                <button className="btn-ghost !py-1 text-xs" disabled={!pingHost || pingHost === s.livePingHost} onClick={() => { patch({ livePingHost: pingHost.trim() }); setPingHost(''); }}>Save</button>
+              </div>
+              <p className="text-xs text-muted">When the window is minimized, all other monitoring stops to keep TWECD lightweight. While Fortnite runs, only a 2 s sampler and one ping every 2 s stay active.</p>
             </div>
           )}
         </Card>
@@ -85,6 +92,20 @@ export default function Settings() {
                 })}
               </div>
             </>
+          )}
+        </Card>
+
+        <Card title="Updates">
+          {s && (
+            <div className="space-y-3 text-sm">
+              <label className="flex cursor-pointer items-center gap-3"><input id="auto-check-updates" type="checkbox" className="accent-[#39FF14]" checked={s.autoCheckUpdates} onChange={(e) => patch({ autoCheckUpdates: e.target.checked })} /> Check for updates when TWECD starts (nothing is downloaded without your click)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button className="btn-ghost text-sm" disabled={upd.state === 'checking' || upd.state === 'downloading'} onClick={() => api().updateCheck().then(setUpd)}>Check now</button>
+                {upd.state === 'available' && <button className="btn-primary text-sm" onClick={() => api().updateDownload()}>Download v{upd.version}</button>}
+                {upd.state === 'ready' && <button className="btn-primary text-sm" onClick={() => api().updateInstall()}>Restart & install v{upd.version}</button>}
+                <span className="text-muted">{({ idle: '', checking: 'Checking...', none: 'You have the latest version.', available: `Version ${upd.version} is available.`, downloading: `Downloading ${upd.percent ?? 0}%...`, ready: 'Downloaded. Install when you are ready.', error: `Update error: ${upd.message}`, disabled: upd.message ?? '' } as Record<string, string>)[upd.state]}</span>
+              </div>
+            </div>
           )}
         </Card>
 

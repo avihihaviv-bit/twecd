@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, screen, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { IPC } from '../shared/ipc';
 import type { BenchmarkResult, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
-import { ApplySchema, CapSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
+import { ApplySchema, CapSchema, ProfileSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
 import { JsonStore } from './services/store';
 import { MonitorHub } from './services/monitor';
 import { PresentMonCapture } from './services/presentMon';
@@ -11,7 +11,9 @@ import { collectStaticInfo } from './services/staticInfo';
 import { runScan } from './services/scan';
 import { Optimizer, type Backup } from './services/optimizer';
 import { getNetContext, runNetTest } from './services/network';
-import { readFortniteConfig, applyFortniteCap, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
+import { readFortniteConfig, applyFortniteCap, applyFortniteProfile, isDx12, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
+import { PROFILES } from './services/fortniteConfig';
+import { Updater } from './services/updater';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
 import { listProcesses } from './services/windows';
@@ -24,6 +26,8 @@ const DEFAULT_SETTINGS: Settings = {
   trackFortniteWhileMinimized: true,
   autoBoost: false,
   autoBoostApps: [],
+  livePingHost: '1.1.1.1',
+  autoCheckUpdates: true,
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
     { label: 'Google DNS', host: '8.8.8.8' },
@@ -50,7 +54,10 @@ const hub = new MonitorHub({
   presentMonPath: pmPath,
   emit: (m) => win?.webContents.send(IPC.metrics, m),
   onFortniteStart: () => void runAutoBoost(),
+  pingHost: () => settings.livePingHost,
+  isDx12: () => isDx12(),
 });
+const updater = new Updater((s) => win?.webContents.send(IPC.updateStatus, s));
 const optimizer = new Optimizer(
   new JsonStore<Backup>(ud(), 'backup.json', { createdAt: 0 }),
   new JsonStore<{ entries: ChangeLogEntry[] }>(ud(), 'changelog.json', { entries: [] }),
@@ -87,14 +94,19 @@ function handle<T>(channel: string, schema: { parse: (v: unknown) => T } | null,
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1360, height: 860, minWidth: 1100, minHeight: 720, show: false, backgroundColor: '#050706',
-    title: 'TWECD GAMING BOOSTER - EXTREME EDITION',
+    width: 1600, height: 950, minWidth: 1350, minHeight: 800, show: false, backgroundColor: '#050706',
+    title: 'TWECD GAMING BOOSTER - ULTRA WIDE EXTREME EDITION',
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#050706', symbolColor: '#39FF14', height: 38 },
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false },
   });
   win.removeMenu();
-  win.once('ready-to-show', () => win?.show());
+  win.once('ready-to-show', () => {
+    // Use the ultra-wide default, but never exceed the screen's work area.
+    const wa = screen.getDisplayMatching(win!.getBounds()).workAreaSize;
+    if (wa.width < 1600 || wa.height < 950) win!.maximize();
+    win?.show();
+  });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (ev, url) => { if (!(DEV_URL && url.startsWith(DEV_URL))) ev.preventDefault(); });
   win.on('minimize', () => hub.setVisible(false));
@@ -158,6 +170,18 @@ function registerIpc() {
     return r;
   });
   handle(IPC.closableCatalog, null, () => closableCatalog());
+  handle(IPC.fortniteProfiles, null, () => Object.values(PROFILES));
+  handle(IPC.fortniteApplyProfile, ProfileSchema, (req) => {
+    if (!isWin) return { ok: false, message: 'Only available on Windows.', changed: [] };
+    if (hub.latest?.fortnite.running) return { ok: false, message: 'Close Fortnite first: the game overwrites its settings file when it exits.', changed: [] };
+    const r = applyFortniteProfile(path.join(ud(), 'fortnite-backup'), req.profile, req.cap);
+    if (r.ok && r.changed.length) optimizer.note(`Fortnite profile: ${PROFILES[req.profile].name}`, r.message);
+    return r;
+  });
+  handle(IPC.updateCheck, null, () => updater.check());
+  handle(IPC.updateDownload, null, () => updater.download());
+  handle(IPC.updateInstall, null, () => updater.install());
+  handle(IPC.updateGet, null, () => updater.status);
 
   handle(IPC.benchRun, BenchSchema, async (req, e) => {
     if (busy.bench) throw new Error('A benchmark is already running');
@@ -192,6 +216,7 @@ app.whenReady().then(() => {
   registerIpc();
   createWindow();
   hub.start();
+  if (settings.autoCheckUpdates) setTimeout(() => void updater.check(), 8000);
 });
 app.on('window-all-closed', () => { hub.shutdown(); app.quit(); });
 app.on('web-contents-created', (_e, wc) => wc.on('will-attach-webview', (ev) => ev.preventDefault()));
