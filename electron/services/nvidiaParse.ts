@@ -37,3 +37,12 @@ export function parseNvsmiLine(line: string): GpuMetrics | null {
     throttleReasons: p[10] ? decodeReasons(p[10]) : [],
   };
 }
+
+/** BAR1 aperture from `nvidia-smi -q -d MEMORY`. ~256 MiB = Resizable BAR off; about the VRAM size = on. */
+export function parseBar1TotalMB(text: string): number | null {
+  const i = text.search(/BAR1 Memory Usage/i);
+  if (i < 0) return null;
+  const m = text.slice(i, i + 300).match(/Total\s*:\s*(\d+)\s*MiB/i);
+  return m ? +m[1] : null;
+}
+export const rebarEnabled = (bar1MB: number | null, vramMB: number | null) => (bar1MB === null ? null : bar1MB >= Math.max(1024, (vramMB ?? 0) * 0.5));

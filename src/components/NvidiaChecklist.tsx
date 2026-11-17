@@ -7,13 +7,15 @@ import { Card } from './ui';
 // the user completes in NVIDIA Control Panel / NVIDIA App. Progress is saved; values are NOT read from the driver.
 const ITEMS: { id: string; setting: string; value: string; why: string }[] = [
   { id: 'power', setting: 'Power management mode', value: 'Prefer maximum performance', why: 'Keeps the RTX 5060 at full clocks in Fortnite instead of down-clocking between frames.' },
-  { id: 'lowlat', setting: 'Low Latency Mode', value: 'On (Reflex in Fortnite overrides it)', why: 'Fortnite has NVIDIA Reflex built in; set Reflex to On + Boost in-game. "Ultra" here is not needed.' },
+  { id: 'lowlat', setting: 'Low Latency Mode', value: 'Off or On (not Ultra)', why: 'Fortnite has NVIDIA Reflex built in, and Reflex replaces Low Latency Mode entirely when it is on. Ultra adds an extra FPS cap and conflicts with Reflex; leave it off.' },
   { id: 'texfilter', setting: 'Texture filtering - Quality', value: 'High performance', why: 'Small GPU saving; no visible change in Performance mode.' },
   { id: 'vsync', setting: 'Vertical sync', value: 'Off', why: 'VSync caps FPS to the refresh rate and adds input lag.' },
   { id: 'maxfps', setting: 'Max Frame Rate', value: 'Off (use Stable FPS Lock in TWECD instead)', why: 'One frame cap is enough; TWECD writes it into Fortnite where it adds the least latency.' },
+  { id: 'bgfps', setting: 'Background Application Max Frame Rate', value: 'Off (or 60 if you alt-tab a lot)', why: 'Only limits FPS when Fortnite is not the focused window; never affects gameplay.' },
   { id: 'shader', setting: 'Shader Cache Size', value: 'Driver Default (or 10 GB)', why: 'Avoids re-compiling shaders. Never clear it to "gain FPS".' },
   { id: 'threaded', setting: 'Threaded optimization', value: 'Auto', why: 'Driver default is best for Fortnite.' },
   { id: 'refresh', setting: 'Preferred refresh rate', value: 'Highest available', why: 'Makes sure your 320 Hz monitor is used at its full refresh rate.' },
+  { id: 'reflex', setting: 'In Fortnite: NVIDIA Reflex Low Latency', value: 'On + Boost', why: 'Cuts render queue latency; Boost keeps GPU clocks up when CPU-bound (your case). Settings > Video in Fortnite.' },
   { id: 'gsync', setting: 'G-SYNC (Set up G-SYNC)', value: 'Your choice: On with a lock 3 FPS below refresh, or Off for max FPS', why: 'With uncapped FPS far above refresh, G-SYNC is inactive anyway.' },
 ];
 

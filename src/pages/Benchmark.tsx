@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Timer, Trash2 } from 'lucide-react';
-import type { BenchmarkProgress, BenchmarkResult } from '../../shared/types';
+import type { BenchScenario, BenchmarkProgress, BenchmarkResult } from '../../shared/types';
+import { pickWinner, SCENARIOS } from '../lib/bench';
 import { api, errMsg, fmt } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, PageHeader } from '../components/ui';
@@ -10,11 +11,17 @@ type Row = { k: string; get: (r: BenchmarkResult) => number | null; d: number; u
 const ROWS: Row[] = [
   { k: 'Average FPS', get: (r) => r.avgFps, d: 0, unit: '', higherBetter: true },
   { k: '1% Low FPS', get: (r) => r.low1, d: 0, unit: '', higherBetter: true },
+  { k: '0.1% Low FPS', get: (r) => r.low01 ?? null, d: 0, unit: '', higherBetter: true },
   { k: 'Best second (max)', get: (r) => r.maxFps ?? null, d: 0, unit: '', higherBetter: true },
   { k: 'Worst second (min)', get: (r) => r.minFps ?? null, d: 0, unit: '', higherBetter: true },
   { k: 'Frame-time std dev', get: (r) => r.frameTimeStdMs, d: 2, unit: ' ms', higherBetter: false },
   { k: 'Stability score', get: (r) => r.stabilityScore, d: 0, unit: '', higherBetter: true },
+  { k: 'Render latency (local)', get: (r) => r.displayLatencyMs ?? null, d: 1, unit: ' ms', higherBetter: false },
   { k: 'CPU utilization', get: (r) => r.avgCpu, d: 0, unit: '%', higherBetter: false },
+  { k: 'CPU temperature', get: (r) => r.cpuTempAvg ?? null, d: 0, unit: ' °C', higherBetter: false },
+  { k: 'GPU temperature', get: (r) => r.gpuTempAvg ?? null, d: 0, unit: ' °C', higherBetter: false },
+  { k: 'CPU clock', get: (r) => r.cpuClockAvg ?? null, d: 0, unit: ' MHz', higherBetter: true },
+  { k: 'GPU clock', get: (r) => r.gpuClockAvg ?? null, d: 0, unit: ' MHz', higherBetter: true },
   { k: 'GPU utilization', get: (r) => r.avgGpu, d: 0, unit: '%', higherBetter: true },
   { k: 'RAM used', get: (r) => r.avgRamMB / 1024, d: 2, unit: ' GB', higherBetter: false },
   { k: 'VRAM used', get: (r) => (r.avgVramMB === null ? null : r.avgVramMB / 1024), d: 2, unit: ' GB', higherBetter: false },
@@ -23,12 +30,14 @@ const ROWS: Row[] = [
   { k: 'Packet loss', get: (r) => r.packetLossPct, d: 0, unit: '%', higherBetter: false },
 ];
 const PROFILE_NAMES: Record<string, string> = { ultra: 'Ultra FPS', 'high-fps': 'High FPS', competitive: 'Competitive', stability: 'Frame Time Stability', dx12: 'DirectX 12' };
-const name = (r: BenchmarkResult) => `${r.label}${r.profile ? ` · ${PROFILE_NAMES[r.profile] ?? r.profile}` : ''} · ${new Date(r.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+const scen = (r: BenchmarkResult) => SCENARIOS.find((s) => s.id === r.scenario)?.name ?? 'Other';
+const name = (r: BenchmarkResult) => `${scen(r)} · ${r.label}${r.profile ? ` · ${PROFILE_NAMES[r.profile] ?? r.profile}` : ''} · ${new Date(r.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
 
 export default function Benchmark({ embedded }: { embedded?: boolean }) {
   const { live } = useApp();
   const [list, setList] = useState<BenchmarkResult[]>([]);
   const [dur, setDur] = useState(60);
+  const [scenario, setScenario] = useState<BenchScenario>('creative-freebuild');
   const [prog, setProg] = useState<BenchmarkProgress | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -37,7 +46,7 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
 
   const run = async (label: string) => {
     setRunning(label); setErr(null); setProg({ elapsedSec: 0, durationSec: dur });
-    try { await api().benchRun({ label, durationSec: dur, pingHost: '1.1.1.1' }); const l = await api().benchList(); setList(l); setA(l[1]?.id ?? ''); setB(l[0]?.id ?? ''); }
+    try { await api().benchRun({ label, durationSec: dur, pingHost: '1.1.1.1', scenario }); const l = await api().benchList(); setList(l); setA(l[1]?.id ?? ''); setB(l[0]?.id ?? ''); }
     catch (e) { setErr(errMsg(e)); } finally { setRunning(null); setProg(null); }
   };
   const A = useMemo(() => list.find((r) => r.id === aId) ?? list.find((r) => r.label === 'Before') ?? list[1], [list, aId]);
@@ -56,6 +65,7 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
             <li>3. Apply optimizations or switch profile in Fortnite Mode.</li>
             <li>4. Same scene again, run <b className="text-white">AFTER</b>.</li>
           </ol>
+          <div className="mb-3"><div className="label mb-1.5">Scenario</div><div className="flex flex-wrap gap-1.5">{SCENARIOS.map((s) => <button key={s.id} onClick={() => setScenario(s.id)} className={`chip border ${scenario === s.id ? 'border-purple bg-purple/20 text-lilac' : 'border-line text-muted'}`} title={s.how}>{s.name}</button>)}</div><div className="mt-1.5 text-xs text-muted">{SCENARIOS.find((s) => s.id === scenario)?.how}</div></div>
           <div className="mb-4 flex items-center gap-2 text-sm"><span className="label">Duration</span>
             {[30, 60, 120].map((d) => <button key={d} onClick={() => setDur(d)} className={`chip border ${dur === d ? 'border-neon/50 text-neon' : 'border-line text-muted'}`}>{d}s</button>)}
           </div>
@@ -100,6 +110,8 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
         </Card>
       </div>
 
+      <Winner list={list} />
+
       {B && B.loads?.length > 0 && <Card className="mt-6" title={`Scene-load breakdown · ${name(B)}`}><LoadProfiles loads={B.loads} /></Card>}
 
       <Card className="mt-6" title="History" right={list.length > 0 && <button className="btn-ghost !py-1 text-xs" onClick={async () => { if (confirm('Delete all benchmark results?')) { await api().benchClear(); setList([]); } }}><Trash2 size={13} /> Clear</button>}>
@@ -116,5 +128,21 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
         )}
       </Card>
     </div>
+  );
+}
+
+function Winner({ list }: { list: BenchmarkResult[] }) {
+  const rows = SCENARIOS.map((sc) => ({ sc, w: pickWinner(list.filter((r) => (r.scenario ?? 'other') === sc.id)) })).filter((x) => x.w.candidates.length > 0);
+  return (
+    <Card className="mt-6" title="Which profile wins? (measured, per scenario)">
+      {rows.length === 0 ? <Empty>Benchmark the same scenario with two different Fortnite profiles (for example Performance "High FPS" vs "DirectX 12"). TWECD picks the winner from your measurements only: highest 1% low first, then average FPS.</Empty> : (
+        <div className="space-y-3">{rows.map(({ sc, w }) => (
+          <div key={sc.id} className="rounded-xl border border-line bg-panel2/60 p-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2"><b className="text-white">{sc.name}</b>{w.winner ? <Badge tone="good">WINNER: {PROFILE_NAMES[w.winner.profile ?? ''] ?? w.winner.profile ?? 'custom'}</Badge> : <Badge tone="muted">NEEDS 2+ PROFILES</Badge>}<span className="text-muted">{w.reason}</span></div>
+            <div className="mt-2 flex flex-wrap gap-3">{w.candidates.map((c) => <span key={c.id} className="num rounded-lg border border-line px-2 py-1 text-xs text-[#cfc3e3]">{PROFILE_NAMES[c.profile ?? ''] ?? c.profile ?? 'custom'}: avg {fmt(c.avgFps)} · 1% {fmt(c.low1)}</span>)}</div>
+          </div>
+        ))}</div>
+      )}
+    </Card>
   );
 }

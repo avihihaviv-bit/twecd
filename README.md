@@ -23,6 +23,17 @@ You can also build it on GitHub: push this folder to a repository and run the *B
 3. Click **APPLY** and confirm. You see which items succeeded, which were skipped, and which are unavailable.
 4. Click **START FORTNITE**.
 
+## Ultimate Performance Engine (v1.6)
+
+There are now ten screens: Dashboard, System Diagnostics, Windows Optimization, NVIDIA Optimization, BIOS Guide, Fortnite Optimization, Ping Optimization, Benchmark, Restore & Backup, and Settings.
+
+- **Windows Optimization** – shows the live state of every safe optimization, with risk, impact and Apply/Undo for each one, so you can change one thing and measure it. New items: a Fortnite power-throttling (EcoQoS) exemption, and Delivery Optimization peer upload off. Both need administrator rights.
+- **HWiNFO integration** – reads CPU package temperature, package power, PL1/PL2, effective clock and throttling flags from HWiNFO's Gadget registry export. This needs no driver; the user turns the export on in HWiNFO.
+- **NVIDIA Optimization** – shows driver, clocks, temperatures and VRAM, Resizable BAR (from the GPU's BAR1 size) and the PCIe link width/generation. It explains Reflex vs Low Latency Mode and includes the guided Fortnite profile checklist.
+- **BIOS Guide (Gigabyte B760 GAMING X AX DDR5)** – checks microcode, XMP (configured vs JEDEC speed), ReBAR, the PCIe slot and the board revision. It gives exact Q-Flash, XMP, Intel Default Settings, ReBAR and Smart Fan steps. It never flashes the BIOS or changes BIOS settings.
+- **Ping Optimization** – adds a bufferbloat test (idle vs loaded ping while downloading from Cloudflare's speed-test endpoint, graded A+–F), network adapter details (link speed, driver, power-saving features), and a split view of network ping vs local render latency (PresentMon DisplayLatency).
+- **Benchmark** – five Fortnite scenarios (Creative Free Build, Build Fight, 1v1, Reload, Battle Royale). Each run records 0.1% low, temperatures, clocks and local latency. A **measured profile winner** is chosen per scenario (1% low first, then average FPS), for example Performance vs DirectX 12.
+
 ## Auto Mode, Region Finder (v1.5)
 
 - **Auto Mode**: one switch. At startup and after every match, TWECD re-applies the safe Windows settings and your chosen Fortnite profile. It also sets the Stable FPS Lock from real data: your target (default 500) only if your PC held it 90% of the last match, otherwise the highest FPS it actually held. It never closes apps or deletes files, and every change is logged and undoable.

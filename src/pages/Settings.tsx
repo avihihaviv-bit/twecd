@@ -1,53 +1,29 @@
 import { useEffect, useState } from 'react';
-import { FolderOpen, RotateCcw, ShieldAlert, ShieldCheck } from 'lucide-react';
-import type { ApplyItemResult, ChangeLogEntry, OptimizationId, RestorableItem, Settings as S, UpdateStatus } from '../../shared/types';
+import { FolderOpen, ShieldAlert, ShieldCheck } from 'lucide-react';
+import type { Settings as S, UpdateStatus } from '../../shared/types';
 import { api, errMsg } from '../lib/api';
 import { useApp } from '../lib/store';
-import { Badge, Card, Empty, PageHeader } from '../components/ui';
+import { Badge, Card, PageHeader } from '../components/ui';
+import { AutoModeCard } from '../components/AutoModeCard';
 
 export default function Settings() {
   const { info, refreshInfo } = useApp();
   const [s, setS] = useState<S | null>(null);
-  const [log, setLog] = useState<ChangeLogEntry[]>([]);
-  const [hasBackup, setHasBackup] = useState(false);
-  const [items, setItems] = useState<RestorableItem[]>([]);
-  const [restored, setRestored] = useState<ApplyItemResult[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<{ exe: string; name: string }[]>([]);
   const [upd, setUpd] = useState<UpdateStatus>({ state: 'idle' });
   useEffect(() => { api().updateGet().then(setUpd); return api().onUpdateStatus(setUpd); }, []);
   const [pingHost, setPingHost] = useState('');
   useEffect(() => { api().closableCatalog().then(setCatalog); }, []);
-  const reload = () => { api().settingsGet().then(setS); api().changeLog().then(setLog); api().hasBackup().then(setHasBackup); api().restorable().then(setItems); };
+  const reload = () => { api().settingsGet().then(setS); };
   useEffect(reload, []);
   const patch = async (p: Partial<S>) => { try { setS(await api().settingsSet(p)); } catch (e) { setMsg(errMsg(e)); } };
 
-  const restore = async () => {
-    if (!confirm('Restore ALL settings TWECD changed to their original values?')) return;
-    setRestored(await api().restore()); reload();
-  };
-
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="SETTINGS" subtitle="Everything TWECD changes is logged here and can be restored." />
+      <PageHeader title="SETTINGS" subtitle="Auto Mode, FPS capture, monitoring and updates. Backups and undo are on the Restore & Backup page." />
+      <div className="mb-6"><AutoModeCard /></div>
       <div className="grid grid-cols-2 gap-6">
-        <Card title="Restore defaults">
-          <p className="text-sm text-[#cfc3e3]">Puts back the original Windows settings saved before the first optimization. Closed apps can simply be reopened; deleted temp files cannot be restored (they were temporary).</p>
-          {items.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {items.map((it) => (
-                <div key={it.id} className="flex items-center gap-3 rounded-lg border border-line bg-panel2/60 px-3 py-2 text-sm">
-                  <div className="flex-1"><b className="text-white">{it.title}</b><div className="text-xs text-muted">{it.detail}</div></div>
-                  <button className="btn-ghost !px-3 !py-1 text-xs" onClick={async () => { setRestored(await api().restore([it.id as OptimizationId])); reload(); }}><RotateCcw size={13} /> Restore</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <button className="btn-danger mt-4" onClick={restore} disabled={!hasBackup}><RotateCcw size={16} /> RESTORE ALL</button>
-          {!hasBackup && <span className="ml-3 text-sm text-muted">Nothing to restore.</span>}
-          {restored && <div className="mt-3 space-y-1">{restored.length === 0 ? <div className="text-sm text-muted">Nothing needed restoring.</div> : restored.map((r) => <div key={r.id} className="text-sm"><Badge tone={r.status === 'success' ? 'good' : 'bad'}>{r.status}</Badge> {r.message}</div>)}</div>}
-        </Card>
-
         <Card title="FPS capture (PresentMon)">
           <div className="text-sm">
             Status: {info?.presentMon.available ? <Badge tone="good">Installed</Badge> : <Badge tone="warn">Not found</Badge>}
@@ -134,9 +110,6 @@ export default function Settings() {
         </Card>
       </div>
 
-      <Card className="mt-6" title="Change log">
-        {log.length === 0 ? <Empty>No changes made yet.</Empty> : <div className="max-h-[260px] space-y-1 overflow-y-auto">{log.map((l, i) => <div key={i} className="flex gap-3 border-b border-line/60 py-1.5 text-sm"><span className="w-44 shrink-0 text-muted">{new Date(l.ts).toLocaleString()}</span><b className="w-72 shrink-0 text-white">{l.action}</b><span className="text-[#cfc3e3]">{l.detail}</span></div>)}</div>}
-      </Card>
     </div>
   );
 }

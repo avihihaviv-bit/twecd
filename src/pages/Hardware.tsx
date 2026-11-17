@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
-import { NvidiaChecklist } from '../components/NvidiaChecklist';
 import { Badge, Bar, Card, LiveChart, PageHeader, Ring, Stat } from '../components/ui';
 
-export default function Hardware() {
+export default function Hardware({ embedded }: { embedded?: boolean }) {
   const { live, history, info } = useApp();
   const g = live?.gpu ?? null;
   const vramPct = g?.vramUsedMB != null && g.vramTotalMB ? (g.vramUsedMB / g.vramTotalMB) * 100 : null;
@@ -19,7 +18,7 @@ export default function Hardware() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="SYSTEM OPTIMIZER" subtitle="Live telemetry from your RTX 5060 and i5-14600K, CPU health and display configuration. TWECD never overclocks, changes voltages, disables cores or touches firmware." />
+      {!embedded && <PageHeader title="SYSTEM DIAGNOSTICS" subtitle="Live telemetry." />}
       <div className="mb-6 card flex items-center justify-around py-6">
         <Ring label="CPU" value={live?.cpu.usage ?? null} sub={live?.cpu.effectiveClockMHz ? `${(live.cpu.effectiveClockMHz / 1000).toFixed(2)} GHz` : undefined} />
         <Ring label="GPU" value={g?.usage ?? null} sub={g?.clockMHz != null ? `${g.clockMHz} MHz` : undefined} />
@@ -73,8 +72,6 @@ export default function Hardware() {
           </div>
         </div>
       </Card>
-
-      <div className="mt-6"><NvidiaChecklist /></div>
 
       {/* CPU HEALTH + DISPLAY */}
       <div className="mt-6 grid grid-cols-2 gap-6">

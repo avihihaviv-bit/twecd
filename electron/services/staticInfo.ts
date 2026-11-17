@@ -28,7 +28,7 @@ export async function collectStaticInfo(appVersion: string, gpu: GpuMonitor, pre
     cpu: { model, physicalCores: physical, logicalCores: cpus.length, baseClockMHz: base, topology: topologyFor(model, cpus.length) },
     ram: { totalMB: Math.round(os.totalmem() / 1048576), modules, channelsHint: ch.hint, channelEvidence: ch.evidence },
     display: probe?.display ?? null,
-    platformInfo: probe ? { biosVendor: probe.biosVendor, biosVersion: probe.biosVersion, biosDate: probe.biosDate, board: probe.board, microcode: probe.microcode } : null,
+    platformInfo: probe ? { biosVendor: probe.biosVendor, biosVersion: probe.biosVersion, biosDate: probe.biosDate, board: probe.board, boardRevision: probe.boardRevision ?? null, microcode: probe.microcode } : null,
     gpu: { name: gpuName, driver: g?.driver ?? null, vramTotalMB: g?.vramTotalMB ?? null, nvidiaSmi: !!g },
     presentMon: { available: !!presentMonPath, path: presentMonPath },
   };

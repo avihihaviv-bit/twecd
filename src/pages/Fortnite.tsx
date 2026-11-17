@@ -8,7 +8,7 @@ import { FpsLock } from '../components/FpsLock';
 import { Profiles } from '../components/Profiles';
 import { FindingGrid, LoadProfiles } from '../components/Report';
 
-export default function Fortnite() {
+export default function Fortnite({ embedded }: { embedded?: boolean }) {
   const { live, info } = useApp();
   const [cfg, setCfg] = useState<FortniteConfigReport | null>(null);
   const [sess, setSess] = useState<{ current: SessionSummary | null; last: SessionSummary | null }>({ current: null, last: null });
@@ -38,8 +38,8 @@ export default function Fortnite() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="FORTNITE MODE" subtitle="Detects Fortnite automatically, measures it while you play, and recommends settings for maximum stable FPS. TWECD only edits Fortnite's settings file (with a backup), never the game itself, its memory or anti-cheat."
-        right={<button className="btn-primary px-6" disabled={!info?.isWindows} onClick={async () => setMsg((await api().launchFortnite()).message)}><Play size={16} /> START FORTNITE</button>} />
+      {!embedded && <PageHeader title="FORTNITE MODE" subtitle="Detects Fortnite automatically, measures it while you play, and recommends settings for maximum stable FPS. TWECD only edits Fortnite's settings file (with a backup), never the game itself, its memory or anti-cheat."
+        right={<button className="btn-primary px-6" disabled={!info?.isWindows} onClick={async () => setMsg((await api().launchFortnite()).message)}><Play size={16} /> START FORTNITE</button>} />}
       {msg && <div className="-mt-3 mb-4 text-sm text-neon2">{msg}</div>}
 
       <div className={`card mb-6 flex items-center gap-4 p-5 ${running ? 'border-neon/40' : ''}`}>

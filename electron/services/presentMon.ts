@@ -21,6 +21,7 @@ export class PresentMonCapture {
   private frames: number[] = [];
   private cpuBusy: number[] = [];
   private gpuBusy: number[] = [];
+  private dispLat: number[] = [];
   private lastSec: number[] = [];
   private recording: number[] | null = null;
   private totalStutters = 0;
@@ -68,6 +69,7 @@ export class PresentMonCapture {
       const f = parseRow(line, cols);
       if (!f) return;
       this.push(f.frameTimeMs, f.cpuBusyMs, f.gpuBusyMs);
+      if (f.displayLatencyMs !== null && f.displayLatencyMs > 0 && f.displayLatencyMs < 500) { this.dispLat.push(f.displayLatencyMs); if (this.dispLat.length > 600) this.dispLat.shift(); }
     });
     this.child.stderr?.on('data', (b) => (stderr += b.toString()));
     this.child.on('error', (e) => { this.status = `PresentMon error: ${e.message}`; this.child = null; });
@@ -109,7 +111,7 @@ export class PresentMonCapture {
       frameTimesMs: this.frames.slice(-GRAPH), frameTimeAvgMs: stats.avgMs, frameTimeStdMs: stats.stdMs,
       spikes: stats.spikes, stutters: stats.stutters, stabilityScore: stats.stabilityScore,
       cpuBusyMs: mean(this.cpuBusy), gpuBusyMs: mean(this.gpuBusy), sampleCount: stats.count,
-      tickP99Ms, tickMaxMs: secSorted[secSorted.length - 1],
+      tickP99Ms, tickMaxMs: secSorted[secSorted.length - 1], displayLatencyMs: mean(this.dispLat),
     };
   }
 

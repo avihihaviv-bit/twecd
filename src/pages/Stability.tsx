@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { SessionSummary } from '../../shared/types';
 import { api } from '../lib/api';
 import { FindingGrid, LoadProfiles } from '../components/Report';
-import Benchmark from './Benchmark';
 import { Target } from 'lucide-react';
 import { fmt } from '../lib/api';
 import { useApp } from '../lib/store';
@@ -11,7 +10,7 @@ import { FpsLock } from '../components/FpsLock';
 
 const TARGET = 750;
 
-export default function Stability() {
+export default function Stability({ embedded }: { embedded?: boolean }) {
   const { live, history, info } = useApp();
   const [sess, setSess] = useState<{ current: SessionSummary | null; last: SessionSummary | null }>({ current: null, last: null });
   useEffect(() => { const t = () => api().session().then(setSess); t(); const iv = setInterval(t, 3000); return () => clearInterval(iv); }, []);
@@ -29,7 +28,7 @@ export default function Stability() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="FPS OPTIMIZER" subtitle="Consistent frame delivery and 1% lows matter more than peak FPS. Every value is measured from real frame times captured with PresentMon (ETW) while Fortnite runs; nothing is injected into the game." />
+      {!embedded && <PageHeader title="FPS OPTIMIZER" subtitle="" />}
       {!info?.presentMon.available && (
         <div className="mb-5 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-sm text-warn">PresentMon is not installed, so FPS and frame times are unavailable. The installer bundles it; for development builds, set its path in Settings.</div>
       )}
@@ -68,7 +67,6 @@ export default function Stability() {
 
       <div className="mt-6"><FpsLock /></div>
 
-      <div className="mt-10"><Benchmark embedded /></div>
 
       <div className="mt-6 grid grid-cols-2 gap-6">
         <Card title="FPS over time"><LiveChart data={data} series={[{ key: 'fps', name: 'FPS', color: '#39FF14' }, { key: 'low1', name: '1% low', color: '#18C77A' }]} max="auto" unit="" height={200} /></Card>

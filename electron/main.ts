@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, screen, shell, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import { IPC } from '../shared/ipc';
-import type { BenchmarkResult, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
+import type { BenchmarkResult, BiosReport, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
 import { ApplySchema, CapSchema, ProfileSchema, RestoreSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
 import { JsonStore } from './services/store';
 import { MonitorHub } from './services/monitor';
@@ -18,7 +18,10 @@ import { plausibility, testRegions } from './services/regions';
 import { findPingKillers } from './services/processCatalog';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
-import { isAdmin, listProcesses, listUserStartup } from './services/windows';
+import { isAdmin, listProcesses, listUserStartup, networkAdapters } from './services/windows';
+import { readHwinfo } from './services/hwinfo';
+import { runBufferbloat } from './services/bufferbloat';
+import { parseBar1TotalMB, rebarEnabled } from './services/nvidiaParse';
 import { isWin, run } from './services/exec';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
@@ -209,6 +212,29 @@ function registerIpc() {
     try { const results = await testRegions(6, (d, t) => e.sender.send(IPC.regionProgress, { done: d, total: t })); return { results, ...plausibility(results) }; } finally { busy.net = false; }
   });
   handle(IPC.pingKillers, null, async () => findPingKillers(await listProcesses(false)));
+  handle(IPC.optStatus, null, () => optimizer.status());
+  handle(IPC.adapters, null, () => networkAdapters());
+  handle(IPC.hwinfo, null, () => readHwinfo());
+  handle(IPC.bufferbloat, null, async (_a, e) => {
+    if (busy.net) throw new Error('A network test is already running');
+    busy.net = true;
+    try { return await runBufferbloat((phase, pct) => e.sender.send(IPC.bufferbloatProgress, { phase, pct })); } finally { busy.net = false; }
+  });
+  handle(IPC.biosReport, null, async (): Promise<BiosReport> => {
+    if (!staticInfo) staticInfo = await collectStaticInfo(app.getVersion(), hub.gpu, pmPath());
+    const pi = staticInfo.platformInfo; const mod = staticInfo.ram.modules[0];
+    const q = isWin ? await run('nvidia-smi', ['-q', '-d', 'MEMORY'], 10000) : null;
+    const bar1 = q ? parseBar1TotalMB(q.stdout) : null;
+    const pq = isWin ? await run('nvidia-smi', ['--query-gpu=pcie.link.gen.current,pcie.link.gen.max,pcie.link.width.current,pcie.link.width.max', '--format=csv,noheader,nounits'], 10000) : null;
+    const pn = pq?.code === 0 ? pq.stdout.trim().split(/\r?\n/)[0].split(',').map((x) => { const v = parseInt(x, 10); return Number.isFinite(v) ? v : null; }) : null;
+    const conf = mod?.speedMHz ?? null; const rated = mod?.ratedMHz ?? null;
+    return {
+      board: pi?.board ?? null, boardRevision: pi?.boardRevision ?? null, biosVersion: pi?.biosVersion ?? null, biosDate: pi?.biosDate ?? null, microcode: pi?.microcode ?? null,
+      ramConfiguredMHz: conf, ramRatedMHz: rated, xmp: conf && rated ? conf > rated : null,
+      bar1MB: bar1, rebar: rebarEnabled(bar1, staticInfo.gpu.vramTotalMB), cpuModel: staticInfo.cpu.model,
+      pcie: pn && pn.length === 4 ? { genCur: pn[0], genMax: pn[1], widthCur: pn[2], widthMax: pn[3] } : null,
+    };
+  });
 
   handle(IPC.benchRun, BenchSchema, async (req, e) => {
     if (busy.bench) throw new Error('A benchmark is already running');

@@ -3,7 +3,7 @@ import { isWin, run } from './exec';
 import { regQuery } from './windows';
 
 export interface MemModule { sizeMB: number; speedMHz: number | null; ratedMHz: number | null; type: string | null; slot: string | null }
-export interface WinProbe { display: DisplayInfo | null; modules: MemModule[]; biosVendor: string | null; biosVersion: string | null; biosDate: string | null; board: string | null }
+export interface WinProbe { display: DisplayInfo | null; modules: MemModule[]; biosVendor: string | null; biosVersion: string | null; biosDate: string | null; board: string | null; boardRevision?: string | null }
 
 // One PowerShell process at startup (not polled). Uses non-localized CIM classes.
 const SCRIPT = `
@@ -19,6 +19,7 @@ $bb = Get-CimInstance Win32_BaseBoard | Select-Object -First 1
   mem = $mem
   bios = if ($b) { [pscustomobject]@{ vendor=$b.Manufacturer; ver=$b.SMBIOSBIOSVersion; date=if ($b.ReleaseDate) { $b.ReleaseDate.ToString('yyyy-MM-dd') } else { $null } } } else { $null }
   board = if ($bb) { ($bb.Manufacturer + ' ' + $bb.Product).Trim() } else { $null }
+  boardRev = if ($bb) { $bb.Version } else { $null }
 } | ConvertTo-Json -Depth 4 -Compress
 `;
 
@@ -39,7 +40,7 @@ export function parseProbe(json: string): WinProbe | null {
     sizeMB: Math.round(m.cap / 1048576), speedMHz: num(m.conf) ?? num(m.speed), ratedMHz: num(m.speed),
     type: MEM_TYPES[m.type] ?? null, slot: [m.loc, m.bank].filter(Boolean).join(' / ') || null,
   }));
-  return { display, modules, biosVendor: o.bios?.vendor ?? null, biosVersion: o.bios?.ver ?? null, biosDate: o.bios?.date ?? null, board: o.board ?? null };
+  return { display, modules, biosVendor: o.bios?.vendor ?? null, biosVersion: o.bios?.ver ?? null, biosDate: o.bios?.date ?? null, board: o.board ?? null, boardRevision: typeof o.boardRev === 'string' && o.boardRev.trim() && !/default string|to be filled/i.test(o.boardRev) ? o.boardRev.trim() : null };
 }
 
 /** Channel layout from slot names such as "ChannelA-DIMM1", "DIMM_B2", "A2". */

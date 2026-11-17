@@ -22,7 +22,7 @@ export interface StaticInfo {
     channelEvidence?: string;
   };
   display?: DisplayInfo | null;
-  platformInfo?: { biosVendor: string | null; biosVersion: string | null; biosDate: string | null; board: string | null; microcode: number | null } | null;
+  platformInfo?: { biosVendor: string | null; biosVersion: string | null; biosDate: string | null; board: string | null; boardRevision?: string | null; microcode: number | null } | null;
   gpu: { name: string | null; driver: string | null; vramTotalMB: number | null; nvidiaSmi: boolean };
   presentMon: { available: boolean; path: string | null };
 }
@@ -70,6 +70,7 @@ export interface FpsMetrics {
   sampleCount: number;
   tickP99Ms: number;      // 99th percentile frame time within the last tick
   tickMaxMs: number;
+  displayLatencyMs: number | null; // PresentMon: CPU frame start -> displayed (local render latency, not ping)
 }
 
 export interface LiveMetrics {
@@ -84,6 +85,7 @@ export interface LiveMetrics {
   net: NetLive | null;
   netStatus: string;
   bottleneck: string | null; // live classification while FPS is measured
+  hw: { packageTemp: number | null; packagePower: number | null; pl1: number | null; pl2: number | null; effClock: number | null; thermalThrottle: number | null; powerThrottle: number | null } | null; // from HWiNFO when available
   mem: MemCounters | null;
 }
 
@@ -135,7 +137,9 @@ export type OptimizationId =
   | 'fortnite-gpu-preference'
   | 'hags-on'
   | 'startup-apps-off'
-  | 'visual-effects-performance';
+  | 'visual-effects-performance'
+  | 'fortnite-power-throttling-off'
+  | 'delivery-optimization-p2p-off';
 
 export interface Recommendation {
   id: string;
@@ -207,10 +211,11 @@ export interface SessionSummary {
 }
 
 // ---------- Benchmark ----------
-export interface BenchmarkRequest { label: string; durationSec: number; pingHost: string }
+export interface BenchmarkRequest { label: string; durationSec: number; pingHost: string; scenario?: BenchScenario }
 export interface BenchmarkResult {
   id: string; label: string; ts: number; durationSec: number; fortniteRunning: boolean; profile: string | null;
   maxFps: number | null; minFps: number | null; jitter: number | null; loads: LoadProfileStats[];
+  scenario?: BenchScenario; low01?: number | null; cpuTempAvg?: number | null; gpuTempAvg?: number | null; cpuClockAvg?: number | null; gpuClockAvg?: number | null; displayLatencyMs?: number | null;
   avgFps: number | null; low1: number | null; frameTimeStdMs: number | null; stabilityScore: number | null;
   avgCpu: number; avgGpu: number | null; avgRamMB: number; avgVramMB: number | null;
   pingAvg: number | null; packetLossPct: number | null; pingHost: string; notes: string[];
@@ -241,3 +246,12 @@ export interface UpdateStatus { state: 'idle' | 'checking' | 'available' | 'none
 export interface RegionResult { id: string; name: string; location: string; samples: (number | null)[]; best: number | null; median: number | null; jitter: number | null; lossPct: number }
 export interface PingKiller { name: string; pid: number; reason: string; closable: boolean }
 export interface AutoModeStatus { enabled: boolean; lastRun: number | null; trigger: string | null; changed: string[]; skipped: number; failed: string[]; lock: string | null }
+
+export type OptState = 'optimal' | 'not-optimal' | 'unavailable' | 'unknown';
+export interface OptStatus { id: OptimizationId; title: string; area: 'Windows' | 'Graphics' | 'Network' | 'Fortnite'; state: OptState; current: string; why: string; impact: 'high' | 'medium' | 'low'; risk: 'none' | 'low' | 'medium'; needsAdmin: boolean; rebootRequired: boolean; restorable: boolean }
+
+export interface BufferbloatResult { idleMs: number | null; loadedMs: number | null; addedMs: number | null; grade: 'A+' | 'A' | 'B' | 'C' | 'D' | 'F' | null; downloadMbps: number | null; loadedLossPct: number | null; advice: string }
+export interface AdapterInfo { name: string; description: string; linkSpeed: string; driverVersion: string | null; driverDate: string | null; power: { name: string; value: string }[] }
+export interface HwSensor { sensor: string; label: string; value: string; raw: number | null }
+export interface BiosReport { board: string | null; boardRevision: string | null; biosVersion: string | null; biosDate: string | null; microcode: number | null; ramConfiguredMHz: number | null; ramRatedMHz: number | null; xmp: boolean | null; bar1MB: number | null; rebar: boolean | null; cpuModel: string; pcie: { genCur: number | null; genMax: number | null; widthCur: number | null; widthMax: number | null } | null }
+export type BenchScenario = 'creative-freebuild' | 'build-fight' | '1v1' | 'reload' | 'battle-royale' | 'other';

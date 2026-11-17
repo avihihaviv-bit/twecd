@@ -3,11 +3,14 @@ import { Sidebar, type PageId } from './components/Sidebar';
 import { UpdateBanner } from './components/UpdateBanner';
 import { hasBridge } from './lib/api';
 import Dashboard from './pages/Dashboard';
-import FpsOptimizer from './pages/Stability';
-import SystemOptimizer from './pages/Hardware';
-import Fortnite from './pages/Fortnite';
+import Diagnostics from './pages/Diagnostics';
+import WindowsOpt from './pages/WindowsOpt';
+import Nvidia from './pages/Nvidia';
+import Bios from './pages/Bios';
+import FortniteOpt from './pages/FortniteOpt';
 import PingOptimizer from './pages/Network';
-import Ram from './pages/Ram';
+import Benchmark from './pages/Benchmark';
+import Backup from './pages/Backup';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -21,12 +24,15 @@ export default function App() {
         <UpdateBanner />
         <main className="flex-1 overflow-y-auto px-8 pb-10">
           <div key={page} className="mx-auto max-w-[2200px]">
-            {page === 'dashboard' && <Dashboard onLaunch={() => setPage('fortnite')} onBenchmark={() => setPage('fps')} />}
-            {page === 'fps' && <FpsOptimizer />}
+            {page === 'dashboard' && <Dashboard onLaunch={() => setPage('fortnite')} onBenchmark={() => setPage('benchmark')} />}
+            {page === 'diagnostics' && <Diagnostics onAutoBoost={() => setPage('settings')} />}
+            {page === 'windows' && <WindowsOpt onBenchmark={() => setPage('benchmark')} />}
+            {page === 'nvidia' && <Nvidia />}
+            {page === 'bios' && <Bios />}
+            {page === 'fortnite' && <FortniteOpt />}
             {page === 'ping' && <PingOptimizer />}
-            {page === 'fortnite' && <Fortnite />}
-            {page === 'system' && <SystemOptimizer />}
-            {page === 'ram' && <Ram onAutoBoost={() => setPage('settings')} />}
+            {page === 'benchmark' && <Benchmark />}
+            {page === 'backup' && <Backup />}
             {page === 'settings' && <Settings />}
           </div>
         </main>

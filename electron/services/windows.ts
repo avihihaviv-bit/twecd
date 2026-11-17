@@ -202,11 +202,13 @@ export function setDxFlag(current: string, flag: string, value: string): string 
 export const dxFlagOn = (current: string | null, flag: string) => !!current && new RegExp(`(^|;)\\s*${flag}=1\\s*(;|$)`, 'i').test(current);
 
 // ---------- Generic reversible registry tweaks ----------
+/** Delivery Optimization per-machine setting (the same value Settings > Windows Update > Delivery Optimization writes). */
+export const DO_KEY = 'HKU\\S-1-5-20\\Software\\Microsoft\\Windows\\CurrentVersion\\DeliveryOptimization\\Settings';
 export type RegType = 'REG_DWORD' | 'REG_SZ' | 'REG_BINARY';
 export interface RegSnapshot { type: RegType; data: string }
 
 /** HKLM writes are allowed only for these exact keys (and only when running as administrator). */
-const HKLM_WRITABLE = ['HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers'];
+const HKLM_WRITABLE = ['HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers', DO_KEY];
 
 export const canWriteKey = (key: string) => key.startsWith('HKCU\\') || HKLM_WRITABLE.includes(key);
 
@@ -287,4 +289,32 @@ export async function createRestorePoint(): Promise<{ ok: boolean; message: stri
   if (/1440|frequency|24 hours/i.test(out)) return { ok: true, message: 'A restore point was already created in the last 24 hours (Windows allows one per day); using that one.' };
   if (/disabled|not enabled|service/i.test(out)) return { ok: false, message: 'System Protection is turned off on drive C:, so Windows cannot create restore points. TWECD\'s own backup is still saved.' };
   return { ok: false, message: `Restore point not created (${out.replace(/^ERR: /, '').slice(0, 140) || 'requires administrator'}). TWECD's own backup is still saved.` };
+}
+
+// ---------- Power throttling (EcoQoS) exception for Fortnite ----------
+/** Windows can move background-like threads to E-cores at low clocks; an exception keeps Fortnite exempt. */
+export async function powerThrottlingExempt(exe: string): Promise<boolean | null> {
+  if (!isWin) return null;
+  const r = await run('powercfg', ['/powerthrottling', 'list'], 10000);
+  if (r.code !== 0) return null;
+  return r.stdout.toLowerCase().includes(exe.toLowerCase());
+}
+export async function setPowerThrottling(exe: string, disable: boolean): Promise<boolean> {
+  if (!isWin) return false;
+  return (await run('powercfg', ['/powerthrottling', disable ? 'disable' : 'reset', '/path', exe], 10000)).code === 0;
+}
+
+// ---------- Network adapter ----------
+export interface AdapterInfo { name: string; description: string; linkSpeed: string; driverVersion: string | null; driverDate: string | null; power: { name: string; value: string }[] }
+export function parseAdapters(json: string): AdapterInfo[] {
+  try {
+    const o = JSON.parse(json); const arr = Array.isArray(o) ? o : o ? [o] : [];
+    return arr.map((a: any) => ({ name: a.Name, description: a.InterfaceDescription, linkSpeed: a.LinkSpeed, driverVersion: a.DriverVersion ?? null, driverDate: a.DriverDate ?? null, power: (Array.isArray(a.Power) ? a.Power : a.Power ? [a.Power] : []).map((p: any) => ({ name: p.DisplayName, value: p.DisplayValue })) }));
+  } catch { return []; }
+}
+export async function networkAdapters(): Promise<AdapterInfo[]> {
+  if (!isWin) return [];
+  const ps = `$ErrorActionPreference='SilentlyContinue'; @(Get-NetAdapter -Physical | Where-Object Status -eq 'Up' | ForEach-Object { $n=$_.Name; [pscustomobject]@{ Name=$n; InterfaceDescription=$_.InterfaceDescription; LinkSpeed=$_.LinkSpeed; DriverVersion=$_.DriverVersion; DriverDate=$_.DriverDate; Power=@(Get-NetAdapterAdvancedProperty -Name $n | Where-Object { $_.DisplayName -match 'Energy|Green|Power Saving|Idle Power|Interrupt Moderation|Flow Control' } | Select-Object DisplayName, DisplayValue) } }) | ConvertTo-Json -Depth 4 -Compress`;
+  const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], 20000);
+  return parseAdapters(r.stdout.trim());
 }

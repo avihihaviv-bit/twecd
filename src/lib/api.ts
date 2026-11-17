@@ -1,7 +1,7 @@
 import type {
   ApplyItemResult, ApplyRequest, ApplyResult, BenchmarkProgress, BenchmarkRequest, BenchmarkResult, ChangeLogEntry,
   FortniteConfigReport, LiveMetrics, NetContext, NetProgress, NetTestRequest, NetTestResult, ProcessInfo, ScanResult,
-  ScanStep, SessionSummary, Settings, StaticInfo, OptimizationId, AutoModeStatus, RegionResult, PingKiller, RestorableItem, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
+  ScanStep, SessionSummary, Settings, StaticInfo, OptimizationId, AutoModeStatus, RegionResult, PingKiller, OptStatus, AdapterInfo, HwSensor, BufferbloatResult, BiosReport, RestorableItem, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
 } from '../../shared/types';
 
 type Off = () => void;
@@ -41,6 +41,12 @@ export interface TwecdApi {
   regionTest(): Promise<{ results: RegionResult[]; ok: boolean; reason: string | null }>;
   onRegionProgress(cb: (p: { done: number; total: number }) => void): Off;
   pingKillers(): Promise<PingKiller[]>;
+  optStatus(): Promise<OptStatus[]>;
+  adapters(): Promise<AdapterInfo[]>;
+  hwinfo(): Promise<HwSensor[] | null>;
+  bufferbloat(): Promise<BufferbloatResult>;
+  onBufferbloatProgress(cb: (p: { phase: string; pct: number }) => void): Off;
+  biosReport(): Promise<BiosReport>;
   benchRun(req: BenchmarkRequest): Promise<BenchmarkResult>;
   onBenchProgress(cb: (p: BenchmarkProgress) => void): Off;
   benchList(): Promise<BenchmarkResult[]>;

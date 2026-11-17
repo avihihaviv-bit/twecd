@@ -10,6 +10,7 @@ import { isWin, run } from './exec';
 import { recommendCap } from './fortniteConfig';
 import { diagnoseSession, loadProfiles, type Tick } from './sessionAnalysis';
 import { listProcesses } from './windows';
+import { pickCpu, readHwinfo } from './hwinfo';
 
 export interface HubOptions {
   intervalMs: () => number;
@@ -48,6 +49,9 @@ export class MonitorHub {
   private lastSession: SessionSummary | null = null;
   private lastDropTs = 0;
   private listeners = new Set<(m: LiveMetrics) => void>();
+  private hw: LiveMetrics['hw'] = null;
+  private hwAt = 0;
+  private hwMissing = 0;
 
   constructor(private o: HubOptions) {
     this.pm = new PresentMonCapture(o.presentMonPath);
@@ -93,9 +97,14 @@ export class MonitorHub {
     const base = this.o.baseClockMHz();
     const fps = this.pm.metrics();
     const perf = this.agent.perfPct;
+    // HWiNFO sensors (only if the user publishes them); checked every 3 s, backing off when absent.
+    if (isWin && Date.now() - this.hwAt > (this.hwMissing > 3 ? 60000 : 3000)) {
+      this.hwAt = Date.now();
+      void readHwinfo().then((s) => { if (s && s.length) { this.hw = pickCpu(s); this.hwMissing = 0; } else { this.hw = null; this.hwMissing++; } }).catch(() => undefined);
+    }
     const m: LiveMetrics = {
       ts: Date.now(),
-      cpu: { usage: c.usage, perCore: c.perCore, effectiveClockMHz: perf !== null && base ? (base * perf) / 100 : null, tempC: this.cpu.tempC },
+      cpu: { usage: c.usage, perCore: c.perCore, effectiveClockMHz: this.hw?.effClock ?? (perf !== null && base ? (base * perf) / 100 : null), tempC: this.cpu.tempC ?? this.hw?.packageTemp ?? null },
       ram: { totalMB: total, availableMB: avail, usedMB: total - avail, percent: ((total - avail) / total) * 100 },
       gpu: this.gpu.latest, gpuStatus: this.gpu.latest ? 'OK' : this.gpu.status,
       fortnite: { ...this.fortnite },
@@ -104,6 +113,7 @@ export class MonitorHub {
       netStatus: this.pinger.error ?? (this.pinger.snapshot() ? 'OK' : 'Measuring...'),
       mem: this.agent.mem,
       bottleneck: null,
+      hw: this.hw,
     };
     if (fps) m.bottleneck = likelyCause(m);
     this.latest = m;

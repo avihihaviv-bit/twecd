@@ -6,6 +6,7 @@ import { api, errMsg, fmt } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, LiveChart, PageHeader, Stat } from '../components/ui';
 import { PingKillers, RegionFinder } from '../components/RegionFinder';
+import { AdapterCard, Bufferbloat, LatencySplit } from '../components/NetworkExtras';
 
 const COLORS = ['#39FF14', '#18C77A', '#7dd3fc', '#ffb020', '#c084fc', '#f472b6', '#facc15', '#fb7185', '#a3e635'];
 
@@ -45,7 +46,7 @@ export default function Network() {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="PING OPTIMIZER" subtitle="Real ICMP measurements. Finds whether latency comes from Wi-Fi, your local network, your ISP or the destination, so you know what to fix. Nothing on your router is changed, and no tool can promise 0 ms ping."
+      <PageHeader title="PING OPTIMIZATION" subtitle="Real ICMP measurements. Finds whether latency comes from Wi-Fi, your local network, your ISP or the destination, so you know what to fix. Nothing on your router is changed, and no tool can promise 0 ms ping."
         right={<button className="btn-primary px-6" onClick={run} disabled={running || !targets.length}>{running ? <Loader2 size={16} className="animate-spin" /> : <Radio size={16} />} {running ? 'TESTING...' : 'RUN NETWORK TEST'}</button>} />
       {err && <div className="mb-4 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">{err}</div>}
 
@@ -58,7 +59,9 @@ export default function Network() {
         <Stat label="Wi-Fi Signal" value={ctx?.wifiSignalPct != null ? String(ctx.wifiSignalPct) : null} unit="%" />
       </div>
 
+      <div className="mt-6"><LatencySplit /></div>
       <div className="mt-6 grid grid-cols-[1.4fr_1fr] gap-6"><RegionFinder /><PingKillers wireless={ctx?.connectionType === 'wireless'} /></div>
+      <div className="mt-6 grid grid-cols-[1.4fr_1fr] gap-6"><Bufferbloat /><AdapterCard /></div>
 
       <Card className="mt-6" title={`Live connection · ${ln?.host ?? ''}`} right={ln ? <span className="num text-xs text-muted">now {fmt(ln.latency, 0, ' ms')} · avg {fmt(ln.avg, 1, ' ms')} · jitter {fmt(ln.jitter, 1, ' ms')} · loss {fmt(ln.lossPct, 0, '%')}</span> : null}>
         <LiveChart data={liveChart} series={[{ key: 'ping', name: 'Ping', color: '#c084fc' }]} max="auto" unit=" ms" height={160} area={false} />

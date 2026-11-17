@@ -4,7 +4,7 @@ import { api, fmt, gb } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, LiveChart, PageHeader, Ring, Stat } from '../components/ui';
 
-export default function Ram({ onAutoBoost }: { onAutoBoost: () => void }) {
+export default function Ram({ onAutoBoost, embedded }: { onAutoBoost: () => void; embedded?: boolean }) {
   const { live, info, history } = useApp();
   const [procs, setProcs] = useState<ProcessInfo[]>([]);
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function Ram({ onAutoBoost }: { onAutoBoost: () => void }) {
 
   return (
     <div className="animate-fadeUp">
-      <PageHeader title="RAM OPTIMIZER" subtitle="Real memory analysis. TWECD does not use fake 'RAM cleaning' (it only forces apps to reload memory later and causes stutter). The real fix is closing apps you don't need while playing." />
+      {!embedded && <PageHeader title="RAM" subtitle="Memory analysis." />}
 
       <div className="grid grid-cols-[300px_1fr] gap-6">
         <div className="card flex flex-col items-center justify-center gap-2 p-6">
