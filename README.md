@@ -23,6 +23,13 @@ You can also build it on GitHub: push this folder to a repository and run the *B
 3. Click **APPLY** and confirm. You see which items succeeded, which were skipped, and which are unavailable.
 4. Click **START FORTNITE**.
 
+## Auto Mode, Region Finder (v1.5)
+
+- **Auto Mode**: one switch. At startup and after every match, TWECD re-applies the safe Windows settings and your chosen Fortnite profile. It also sets the Stable FPS Lock from real data: your target (default 500) only if your PC held it 90% of the last match, otherwise the highest FPS it actually held. It never closes apps or deletes files, and every change is logged and undoable.
+- **Fortnite Region Finder**: measures the connection to the datacenter area of every Fortnite matchmaking region and recommends the lowest-latency one. A physics check (light in fiber covers about 200 km/ms) rejects impossible results caused by a VPN, proxy or antivirus HTTPS scanning, so it never recommends a region from fake numbers.
+- **Ping killers**: detects torrent clients, cloud sync, game launchers downloading in the background, and Wi-Fi.
+- **Design**: a deeper purple-black palette, with responsive cards from 1350 px up to ultra-wide.
+
 ## MAX FPS: Optimize Everything (v1.4)
 
 One button scans Windows, Fortnite and the NVIDIA setup and shows what will change. Nothing is applied until you approve it. After applying, TWECD **reads every value back to verify it saved** and shows a before/after table. Each change has its own Undo button, Settings has per-item restore plus Restore All, and a System Restore point is attempted first when TWECD runs as administrator. The scan also lists what it deliberately does **not** change, and why.

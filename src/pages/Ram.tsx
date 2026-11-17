@@ -57,7 +57,7 @@ export default function Ram({ onAutoBoost }: { onAutoBoost: () => void }) {
       {verdict && (
         <div className={`card mt-6 p-5 ${verdict.tone === 'bad' ? 'border-bad/40' : verdict.tone === 'warn' ? 'border-warn/40' : 'border-neon/30'}`}>
           <div className="flex items-center gap-3"><Badge tone={verdict.tone}>{verdict.tone === 'good' ? 'OK' : verdict.tone === 'warn' ? 'WATCH' : 'PROBLEM'}</Badge><span className="font-display text-lg font-bold tracking-wide text-white">{verdict.title}</span></div>
-          <ul className="mt-2 space-y-0.5 text-sm text-[#c3cdc7]">{verdict.ev.filter(Boolean).map((e) => <li key={e}>• {e}</li>)}</ul>
+          <ul className="mt-2 space-y-0.5 text-sm text-[#cfc3e3]">{verdict.ev.filter(Boolean).map((e) => <li key={e}>• {e}</li>)}</ul>
         </div>
       )}
 
@@ -73,7 +73,7 @@ export default function Ram({ onAutoBoost }: { onAutoBoost: () => void }) {
           ) : <div className="text-sm text-muted">Module information unavailable on this system.</div>}
           <div className="mt-3 flex items-start gap-2 text-sm">
             {info?.ram.channelsHint === 'single' ? <Badge tone="bad">SINGLE CHANNEL</Badge> : info?.ram.channelsHint ? <Badge tone="good">DUAL CHANNEL</Badge> : <Badge tone="muted">CHANNELS UNKNOWN</Badge>}
-            <span className="text-[#c3cdc7]">{info?.ram.channelEvidence}</span>
+            <span className="text-[#cfc3e3]">{info?.ram.channelEvidence}</span>
           </div>
           <p className="mt-3 text-xs text-muted">If "Running at" equals the JEDEC default (e.g. 4800 MT/s for DDR5) and your kit is rated faster, enable XMP in BIOS. TWECD never changes BIOS settings.</p>
         </Card>

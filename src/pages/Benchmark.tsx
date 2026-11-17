@@ -50,7 +50,7 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
       <p className="-mt-2 mb-5 max-w-4xl text-sm text-muted">For a fair comparison use the same Fortnite map and route (a Creative map is ideal), the same time of day, and Fortnite already loaded. TWECD shows the raw difference and never adjusts it. Each run records which Fortnite profile was active.</p>
       <div className="grid grid-cols-[380px_1fr] gap-6">
         <Card title="Run">
-          <ol className="mb-4 space-y-1 text-sm text-[#c3cdc7]">
+          <ol className="mb-4 space-y-1 text-sm text-[#cfc3e3]">
             <li>1. Load the same scene in Fortnite.</li>
             <li>2. Run <b className="text-white">BEFORE</b> (or benchmark the current profile).</li>
             <li>3. Apply optimizations or switch profile in Fortnite Mode.</li>
@@ -87,8 +87,8 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
                   return (
                     <tr key={row.k} className="border-t border-line/60">
                       <td className="py-2 font-semibold text-white">{row.k}</td>
-                      <td className={`num ${a === null ? 'text-xs text-[#56625b]' : ''}`}>{fmt(a, row.d, row.unit)}</td>
-                      <td className={`num ${b === null ? 'text-xs text-[#56625b]' : ''}`}>{fmt(b, row.d, row.unit)}</td>
+                      <td className={`num ${a === null ? 'text-xs text-[#6b5d85]' : ''}`}>{fmt(a, row.d, row.unit)}</td>
+                      <td className={`num ${b === null ? 'text-xs text-[#6b5d85]' : ''}`}>{fmt(b, row.d, row.unit)}</td>
                       <td className={`num ${better === null ? 'text-muted' : better ? 'text-neon' : 'text-bad'}`}>{delta === null ? '-' : `${delta > 0 ? '+' : ''}${delta.toFixed(row.d)}${row.unit}${pct !== null && Number.isFinite(pct) ? ` (${pct > 0 ? '+' : ''}${pct.toFixed(0)}%)` : ''}`}</td>
                     </tr>
                   );

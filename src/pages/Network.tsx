@@ -5,6 +5,7 @@ import type { NetContext, NetTarget, NetTargetResult } from '../../shared/types'
 import { api, errMsg, fmt } from '../lib/api';
 import { useApp } from '../lib/store';
 import { Badge, Card, Empty, LiveChart, PageHeader, Stat } from '../components/ui';
+import { PingKillers, RegionFinder } from '../components/RegionFinder';
 
 const COLORS = ['#39FF14', '#18C77A', '#7dd3fc', '#ffb020', '#c084fc', '#f472b6', '#facc15', '#fb7185', '#a3e635'];
 
@@ -57,6 +58,8 @@ export default function Network() {
         <Stat label="Wi-Fi Signal" value={ctx?.wifiSignalPct != null ? String(ctx.wifiSignalPct) : null} unit="%" />
       </div>
 
+      <div className="mt-6 grid grid-cols-[1.4fr_1fr] gap-6"><RegionFinder /><PingKillers wireless={ctx?.connectionType === 'wireless'} /></div>
+
       <Card className="mt-6" title={`Live connection · ${ln?.host ?? ''}`} right={ln ? <span className="num text-xs text-muted">now {fmt(ln.latency, 0, ' ms')} · avg {fmt(ln.avg, 1, ' ms')} · jitter {fmt(ln.jitter, 1, ' ms')} · loss {fmt(ln.lossPct, 0, '%')}</span> : null}>
         <LiveChart data={liveChart} series={[{ key: 'ping', name: 'Ping', color: '#c084fc' }]} max="auto" unit=" ms" height={160} area={false} />
       </Card>
@@ -64,7 +67,7 @@ export default function Network() {
       {r && (
         <div className="card mt-6 flex items-start gap-4 p-5">
           <Wifi className="mt-1 text-neon" />
-          <div className="flex-1"><div className="flex items-center gap-2"><span className="font-display text-lg font-bold tracking-wide text-white">{r.diagnosis.title}</span><Badge tone={dTone[r.diagnosis.source]}>{r.diagnosis.source.toUpperCase()}</Badge></div><div className="mt-1 text-sm text-[#c3cdc7]">{r.diagnosis.explanation}</div></div>
+          <div className="flex-1"><div className="flex items-center gap-2"><span className="font-display text-lg font-bold tracking-wide text-white">{r.diagnosis.title}</span><Badge tone={dTone[r.diagnosis.source]}>{r.diagnosis.source.toUpperCase()}</Badge></div><div className="mt-1 text-sm text-[#cfc3e3]">{r.diagnosis.explanation}</div></div>
         </div>
       )}
 
@@ -73,10 +76,10 @@ export default function Network() {
           {chart.length === 0 ? <Empty>Run a test to see the stability graph.</Empty> : (
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={chart} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
-                <CartesianGrid stroke="#16201b" vertical={false} />
-                <XAxis dataKey="i" tick={{ fill: '#5d6a63', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: '#5d6a63', fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
-                <Tooltip contentStyle={{ background: '#0d1210', border: '1px solid #1c2621', borderRadius: 10 }} formatter={(v: number, n: string) => [`${v} ms`, labelOf(n)]} labelFormatter={(l) => `Probe ${l}`} />
+                <CartesianGrid stroke="#241a38" vertical={false} />
+                <XAxis dataKey="i" tick={{ fill: '#7a6c95', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#7a6c95', fontSize: 11 }} axisLine={false} tickLine={false} width={44} />
+                <Tooltip contentStyle={{ background: '#0f0b17', border: '1px solid #2a1f40', borderRadius: 10 }} formatter={(v: number, n: string) => [`${v} ms`, labelOf(n)]} labelFormatter={(l) => `Probe ${l}`} />
                 <Legend formatter={(v: string) => <span className="text-xs text-muted">{labelOf(v)}</span>} />
                 {hosts.map((h, i) => <Line key={h} type="monotone" dataKey={h} stroke={COLORS[i % COLORS.length]} strokeWidth={1.8} dot={false} isAnimationActive={false} connectNulls={false} />)}
               </LineChart>

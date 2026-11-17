@@ -32,7 +32,7 @@ export function Profiles({ current, onChanged }: { current: FortniteProfileId | 
           return (
             <div key={p.id} className={`flex flex-col rounded-xl border p-4 ${active ? 'border-neon/50 bg-neon/[0.05]' : 'border-line bg-panel2/60'}`}>
               <div className="flex items-center gap-2"><span className="font-display text-[13px] font-bold tracking-[0.1em] text-white">{p.name.toUpperCase()}</span>{active && <Check size={15} className="text-neon" />}</div>
-              <p className="mt-2 flex-1 text-[13px] text-[#c3cdc7]">{p.summary}{p.needsCap && <span className="mt-1 block text-neon2">{cap ? `Lock: ${cap} FPS (from your last match)` : 'Needs one measured match first.'}</span>}</p>
+              <p className="mt-2 flex-1 text-[13px] text-[#cfc3e3]">{p.summary}{p.needsCap && <span className="mt-1 block text-neon2">{cap ? `Lock: ${cap} FPS (from your last match)` : 'Needs one measured match first.'}</span>}</p>
               <button className={active ? 'btn-ghost mt-3' : 'btn-primary mt-3'} disabled={!!busy || running || blocked || !info?.isWindows || current === undefined} onClick={() => apply(p)}>
                 {busy === p.id ? <Loader2 size={15} className="animate-spin" /> : null}{active ? 'RE-APPLY' : 'APPLY'}
               </button>

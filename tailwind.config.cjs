@@ -4,16 +4,16 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        bg: '#050706',
-        panel: '#0d1210',
-        panel2: '#121a16',
-        line: '#1c2621',
+        bg: '#06040a',
+        panel: '#0f0b17',
+        panel2: '#150f21',
+        line: '#2a1f40',
         neon: '#39FF14',
         neon2: '#18C77A',
         purple: '#B44CFF',
         purple2: '#7C3AED',
         lilac: '#E4C8FF',
-        muted: '#8a968f',
+        muted: '#9d90b8',
         warn: '#ffb020',
         bad: '#ff4d5e',
       },

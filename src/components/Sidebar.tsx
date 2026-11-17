@@ -17,7 +17,7 @@ export function Sidebar({ page, onPage }: { page: PageId; onPage: (p: PageId) =>
   const { live } = useApp();
   const fn = live?.fortnite.running;
   return (
-    <aside className="flex w-[250px] shrink-0 flex-col border-r border-line bg-[#070a08]/95">
+    <aside className="flex w-[250px] shrink-0 flex-col border-r border-purple/20 bg-gradient-to-b from-[#120a22] to-[#07040c]">
       <div className="drag px-6 pb-7 pt-6"><div className="no-drag inline-block"><Logo /></div></div>
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {NAV.map((n) => {
@@ -25,7 +25,7 @@ export function Sidebar({ page, onPage }: { page: PageId; onPage: (p: PageId) =>
           const Icon = n.icon;
           return (
             <button key={n.id} onClick={() => onPage(n.id)}
-              className={`group relative flex items-center gap-3 rounded-xl px-4 py-3 text-left text-[15.5px] font-semibold transition-all ${active ? 'bg-purple/15 text-lilac shadow-[inset_0_0_20px_rgba(180,76,255,0.12)]' : 'text-[#b7c2bc] hover:bg-white/[0.03] hover:text-white'}`}>
+              className={`group relative flex items-center gap-3 rounded-xl px-4 py-3 text-left text-[15.5px] font-semibold transition-all ${active ? 'bg-purple/15 text-lilac shadow-[inset_0_0_20px_rgba(180,76,255,0.12)]' : 'text-[#c4b8dc] hover:bg-white/[0.03] hover:text-white'}`}>
               {active && <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-purple shadow-purple" />}
               <Icon size={19} className={active ? 'text-purple' : 'text-muted group-hover:text-white'} />
               {n.label}

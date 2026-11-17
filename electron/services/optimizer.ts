@@ -86,7 +86,7 @@ export class Optimizer {
     const b: Backup = this.backup.readRaw() ?? { createdAt: Date.now() };
     b.reg ??= {};
     let restorePoint: ApplyResult['restorePoint'] = null;
-    if (isWin && req.ids.some((i) => SYSTEM_CHANGES.includes(i))) {
+    if (isWin && !req.skipRestorePoint && req.ids.some((i) => SYSTEM_CHANGES.includes(i))) {
       restorePoint = (await this.isAdmin()) ? await createRestorePoint() : { ok: false, message: 'Not running as administrator, so no System Restore point was created. TWECD\'s own backup of every changed value is saved.' };
     }
     const results: ApplyItemResult[] = [];

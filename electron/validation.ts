@@ -17,6 +17,10 @@ export const SettingsSchema = z.object({
   livePingHost: host.optional(),
   autoCheckUpdates: z.boolean().optional(),
   nvidiaChecklist: z.array(z.string().max(40)).max(30).optional(),
+  autoMode: z.boolean().optional(),
+  autoProfile: z.enum(['ultra', 'competitive', 'high-fps', 'stability', 'dx12']).optional(),
+  autoLock: z.boolean().optional(),
+  autoLockTarget: z.number().int().min(60).max(1000).optional(),
   autoBoostApps: z.array(z.string().max(80)).max(60).optional(),
 }).strict();
 export const VisibleSchema = z.boolean();

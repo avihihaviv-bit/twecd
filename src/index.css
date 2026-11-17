@@ -11,26 +11,27 @@
 :root { color-scheme: dark; }
 html, body, #root { height: 100%; }
 body {
-  margin: 0; background: #050706; color: #f2f7f4; font-family: Rajdhani, 'Segoe UI', sans-serif; font-size: 15px;
+  margin: 0; background: #06040a; color: #f2f7f4; font-family: Rajdhani, 'Segoe UI', sans-serif; font-size: 15px;
   -webkit-font-smoothing: antialiased; overflow: hidden; user-select: none;
 }
 .bg-grid {
   background-image:
-    radial-gradient(1200px 600px at 75% -10%, rgba(180,76,255,0.10), transparent 60%),
-    radial-gradient(900px 520px at -10% 110%, rgba(57,255,20,0.06), transparent 60%),
-    linear-gradient(rgba(180,76,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(180,76,255,0.03) 1px, transparent 1px);
+    radial-gradient(1300px 650px at 78% -12%, rgba(180,76,255,0.20), transparent 60%),
+    radial-gradient(900px 600px at -12% 40%, rgba(124,58,237,0.12), transparent 60%),
+    radial-gradient(800px 500px at 50% 120%, rgba(57,255,20,0.05), transparent 60%),
+    linear-gradient(rgba(180,76,255,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(180,76,255,0.045) 1px, transparent 1px);
   background-size: auto, auto, 44px 44px, 44px 44px;
 }
 .drag { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #1f2a24; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #2c3b33; }
+::-webkit-scrollbar-thumb { background: #3b2a5c; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #6b3fb0; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 @layer components {
-  .card { @apply rounded-2xl border border-line bg-panel/90 backdrop-blur-sm; box-shadow: 0 1px 0 rgba(255,255,255,0.02) inset, 0 10px 30px rgba(0,0,0,0.35); }
+  .card { @apply rounded-2xl border border-line bg-panel/90 backdrop-blur-sm; background-image: linear-gradient(160deg, rgba(180,76,255,0.07), transparent 45%); box-shadow: 0 1px 0 rgba(228,200,255,0.05) inset, 0 12px 34px rgba(0,0,0,0.45), 0 0 0 1px rgba(180,76,255,0.04); }
   .card-hover { @apply transition-all duration-200 hover:border-purple/40 hover:shadow-[0_0_30px_rgba(180,76,255,0.12)]; }
   .label { @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-muted; }
   .num { @apply font-display tabular-nums; }

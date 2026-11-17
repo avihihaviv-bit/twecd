@@ -32,7 +32,7 @@ export default function Settings() {
       <PageHeader title="SETTINGS" subtitle="Everything TWECD changes is logged here and can be restored." />
       <div className="grid grid-cols-2 gap-6">
         <Card title="Restore defaults">
-          <p className="text-sm text-[#c3cdc7]">Puts back the original Windows settings saved before the first optimization. Closed apps can simply be reopened; deleted temp files cannot be restored (they were temporary).</p>
+          <p className="text-sm text-[#cfc3e3]">Puts back the original Windows settings saved before the first optimization. Closed apps can simply be reopened; deleted temp files cannot be restored (they were temporary).</p>
           {items.length > 0 && (
             <div className="mt-4 space-y-2">
               {items.map((it) => (
@@ -135,7 +135,7 @@ export default function Settings() {
       </div>
 
       <Card className="mt-6" title="Change log">
-        {log.length === 0 ? <Empty>No changes made yet.</Empty> : <div className="max-h-[260px] space-y-1 overflow-y-auto">{log.map((l, i) => <div key={i} className="flex gap-3 border-b border-line/60 py-1.5 text-sm"><span className="w-44 shrink-0 text-muted">{new Date(l.ts).toLocaleString()}</span><b className="w-72 shrink-0 text-white">{l.action}</b><span className="text-[#c3cdc7]">{l.detail}</span></div>)}</div>}
+        {log.length === 0 ? <Empty>No changes made yet.</Empty> : <div className="max-h-[260px] space-y-1 overflow-y-auto">{log.map((l, i) => <div key={i} className="flex gap-3 border-b border-line/60 py-1.5 text-sm"><span className="w-44 shrink-0 text-muted">{new Date(l.ts).toLocaleString()}</span><b className="w-72 shrink-0 text-white">{l.action}</b><span className="text-[#cfc3e3]">{l.detail}</span></div>)}</div>}
       </Card>
     </div>
   );

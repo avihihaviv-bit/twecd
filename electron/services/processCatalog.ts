@@ -24,6 +24,8 @@ const CLOSABLE: Record<string, string> = {
   'adobe desktop service.exe': 'Adobe Creative Cloud', 'creative cloud.exe': 'Adobe Creative Cloud', 'dropbox.exe': 'Dropbox',
   'googledrivefs.exe': 'Google Drive', 'whatsapp.exe': 'WhatsApp', 'telegram.exe': 'Telegram', 'slack.exe': 'Slack', 'zoom.exe': 'Zoom',
   'code.exe': 'Visual Studio Code', 'winword.exe': 'Word', 'excel.exe': 'Excel', 'powerpnt.exe': 'PowerPoint', 'obs64.exe': 'OBS Studio',
+  'qbittorrent.exe': 'qBittorrent', 'utorrent.exe': 'uTorrent', 'bittorrent.exe': 'BitTorrent', 'transmission-qt.exe': 'Transmission',
+  'idman.exe': 'Internet Download Manager', 'megasync.exe': 'MEGAsync', 'icloudservices.exe': 'iCloud',
   'icue.exe': 'Corsair iCUE', 'razer synapse 3.exe': 'Razer Synapse', 'lghub.exe': 'Logitech G HUB', 'wallpaper64.exe': 'Wallpaper Engine',
 };
 
@@ -39,3 +41,34 @@ export function categorize(name: string): ProcessInfo['category'] {
 export const closableCatalog = () => Object.entries(CLOSABLE).map(([exe, name]) => ({ exe, name }));
 export const friendlyName = (name: string) => CLOSABLE[name.toLowerCase()] ?? name;
 export const isClosable = (name: string) => categorize(name) === 'closable';
+
+/** Apps that commonly use bandwidth in the background (downloads, sync, torrents, streaming uploads). */
+const BANDWIDTH: Record<string, string> = {
+  'qbittorrent.exe': 'Torrent client: uploads and downloads constantly',
+  'utorrent.exe': 'Torrent client: uploads and downloads constantly',
+  'bittorrent.exe': 'Torrent client: uploads and downloads constantly',
+  'transmission-qt.exe': 'Torrent client: uploads and downloads constantly',
+  'idman.exe': 'Download manager',
+  'steam.exe': 'Can download game updates in the background',
+  'battle.net.exe': 'Can download game updates in the background',
+  'eadesktop.exe': 'Can download game updates in the background',
+  'ubisoftconnect.exe': 'Can download game updates in the background',
+  'onedrive.exe': 'Cloud sync: uploads files in the background',
+  'dropbox.exe': 'Cloud sync: uploads files in the background',
+  'googledrivefs.exe': 'Cloud sync: uploads files in the background',
+  'megasync.exe': 'Cloud sync: uploads files in the background',
+  'icloudservices.exe': 'Cloud sync: uploads files in the background',
+  'obs64.exe': 'Streaming/recording can upload video while you play',
+};
+
+export function findPingKillers(procs: { pid: number; name: string }[]) {
+  const seen = new Set<string>();
+  const out: { name: string; pid: number; reason: string; closable: boolean }[] = [];
+  for (const p of procs) {
+    const k = p.name.toLowerCase();
+    if (!(k in BANDWIDTH) || seen.has(k)) continue;
+    seen.add(k);
+    out.push({ name: friendlyName(p.name), pid: p.pid, reason: BANDWIDTH[k], closable: isClosable(p.name) });
+  }
+  return out;
+}

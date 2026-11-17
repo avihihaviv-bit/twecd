@@ -1,7 +1,7 @@
 import type {
   ApplyItemResult, ApplyRequest, ApplyResult, BenchmarkProgress, BenchmarkRequest, BenchmarkResult, ChangeLogEntry,
   FortniteConfigReport, LiveMetrics, NetContext, NetProgress, NetTestRequest, NetTestResult, ProcessInfo, ScanResult,
-  ScanStep, SessionSummary, Settings, StaticInfo, OptimizationId, RestorableItem, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
+  ScanStep, SessionSummary, Settings, StaticInfo, OptimizationId, AutoModeStatus, RegionResult, PingKiller, RestorableItem, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
 } from '../../shared/types';
 
 type Off = () => void;
@@ -35,6 +35,12 @@ export interface TwecdApi {
   updateInstall(): Promise<UpdateStatus>;
   updateGet(): Promise<UpdateStatus>;
   onUpdateStatus(cb: (s: UpdateStatus) => void): Off;
+  autoGet(): Promise<AutoModeStatus>;
+  autoRun(): Promise<AutoModeStatus>;
+  onAutoStatus(cb: (s: AutoModeStatus) => void): Off;
+  regionTest(): Promise<{ results: RegionResult[]; ok: boolean; reason: string | null }>;
+  onRegionProgress(cb: (p: { done: number; total: number }) => void): Off;
+  pingKillers(): Promise<PingKiller[]>;
   benchRun(req: BenchmarkRequest): Promise<BenchmarkResult>;
   onBenchProgress(cb: (p: BenchmarkProgress) => void): Off;
   benchList(): Promise<BenchmarkResult[]>;

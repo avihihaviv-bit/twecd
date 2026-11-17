@@ -39,7 +39,7 @@ export function FpsLock() {
   return (
     <Card title={<span className="flex items-center gap-2"><Lock size={14} className="text-neon" /> Stable FPS Lock</span>}
       right={<span className="text-xs text-muted">Current: <b className="text-white">{cap === undefined ? 'Unavailable' : cap === null || cap === 0 ? 'Unlimited' : `${Math.round(cap)} FPS`}</b></span>}>
-      <p className="text-sm text-[#c3cdc7]">FPS that jumps between highs and lows feels choppy. Locking slightly below what your PC holds most of the time gives flat, even frame times, which feels smoother than a higher but unstable number.</p>
+      <p className="text-sm text-[#cfc3e3]">FPS that jumps between highs and lows feels choppy. Locking slightly below what your PC holds most of the time gives flat, even frame times, which feels smoother than a higher but unstable number.</p>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Box k="Last match avg" v={sess?.avgFps != null ? Math.round(sess.avgFps).toString() : null} />
@@ -66,7 +66,7 @@ function Box({ k, v, neon }: { k: string; v: string | null; neon?: boolean }) {
   return (
     <div className={`rounded-xl border p-3 ${neon ? 'border-neon/30 bg-neon/[0.04]' : 'border-line bg-panel2/60'}`}>
       <div className="label">{k}</div>
-      <div className={`num mt-1 font-bold ${v === null ? 'text-sm text-[#56625b]' : neon ? 'text-2xl text-neon' : 'text-2xl text-white'}`}>{v ?? 'Unavailable'}</div>
+      <div className={`num mt-1 font-bold ${v === null ? 'text-sm text-[#6b5d85]' : neon ? 'text-2xl text-neon' : 'text-2xl text-white'}`}>{v ?? 'Unavailable'}</div>
     </div>
   );
 }

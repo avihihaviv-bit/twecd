@@ -49,7 +49,7 @@ export default function Stability() {
         </Card>
         <Card title={<span className="flex items-center gap-2"><Target size={14} className="text-neon" /> 750 FPS target</span>}>
           <div className="num text-4xl font-bold text-white">{f ? Math.round(f.avg) : '--'}<span className="text-lg text-muted"> / {TARGET}</span></div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-gradient-to-r from-neon2 to-neon" style={{ width: `${f ? Math.min(100, (f.avg / TARGET) * 100) : 0}%` }} /></div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-gradient-to-r from-purple to-neon" style={{ width: `${f ? Math.min(100, (f.avg / TARGET) * 100) : 0}%` }} /></div>
           <p className="mt-4 text-sm text-muted">750 FPS is an aspirational target, not a promise. On an RTX 5060 + i5-14600K it is only approachable in Performance mode, in light scenes, with the CPU free of background load. Late-game fights are usually CPU-bound and lower.</p>
         </Card>
       </div>
@@ -92,7 +92,7 @@ function Metric({ k, v, hint }: { k: string; v: string | null; hint: string }) {
   return (
     <div className="rounded-xl border border-line bg-panel2/60 p-3">
       <div className="label">{k}</div>
-      <div className={`num mt-1 text-lg font-bold ${v === null ? 'text-sm text-[#56625b]' : 'text-white'}`}>{v ?? 'Unavailable'}</div>
+      <div className={`num mt-1 text-lg font-bold ${v === null ? 'text-sm text-[#6b5d85]' : 'text-white'}`}>{v ?? 'Unavailable'}</div>
       <div className="text-[11px] text-muted">{hint}</div>
     </div>
   );

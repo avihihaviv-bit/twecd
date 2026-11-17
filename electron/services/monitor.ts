@@ -20,6 +20,7 @@ export interface HubOptions {
   isDx12: () => boolean;
   emit: (m: LiveMetrics) => void;
   onFortniteStart?: () => void;
+  onFortniteStop?: () => void;
 }
 
 interface Session { startedAt: number; endedAt: number | null; ticks: Tick[]; drops: PerfDropEvent[]; dx12: boolean; bgAppsMB: number | null; lastBgCheck: number }
@@ -138,6 +139,8 @@ export class MonitorHub {
     if (this.session) { this.session.endedAt = Date.now(); this.lastSession = this.summary(this.session); }
     this.session = null;
     this.applyMode();
+    // Fortnite writes its settings file on exit; wait before touching it.
+    setTimeout(() => { try { this.o.onFortniteStop?.(); } catch { /* ignore */ } }, 8000);
   }
 
   private recordSession(m: LiveMetrics) {

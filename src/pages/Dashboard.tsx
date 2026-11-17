@@ -7,6 +7,7 @@ import { useApp } from '../lib/store';
 import { Badge, Card, FrameTimeChart, LiveChart } from '../components/ui';
 import { LogoMark } from '../components/Logo';
 import { FindingGrid } from '../components/Report';
+import { AutoModeCard } from '../components/AutoModeCard';
 
 const STEP_LABELS: [ScanStep['id'], string][] = [
   ['cpu', 'Scan CPU'], ['gpu', 'Scan GPU & display'], ['vram', 'Scan VRAM'], ['ram', 'Scan RAM'], ['processes', 'Scan background apps'],
@@ -112,7 +113,7 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
             <Action n={3} icon={Play} label="START FORTNITE" sub="Via Epic Games Launcher" onClick={launch} disabled={!info?.isWindows} />
             <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] font-semibold tracking-[0.14em]">
               {['SCAN', 'ANALYZE', 'APPLY', 'BENCHMARK'].map((s, i) => (
-                <span key={s} className="flex items-center gap-1.5"><span className={stage >= i ? 'text-neon' : 'text-[#4a5650]'}>{s}</span>{i < 3 && <ArrowRight size={11} className="text-[#3a4840]" />}</span>
+                <span key={s} className="flex items-center gap-1.5"><span className={stage >= i ? 'text-neon' : 'text-[#5d4f7a]'}>{s}</span>{i < 3 && <ArrowRight size={11} className="text-[#4a3b66]" />}</span>
               ))}
             </div>
             {launchMsg && <div className="text-center text-sm text-neon2">{launchMsg}</div>}
@@ -120,6 +121,8 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
           </div>
         </div>
       </section>
+
+      <AutoModeCard />
 
       {/* MIDDLE: performance cards */}
       <div className="grid grid-cols-6 gap-4">
@@ -135,7 +138,7 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
         <BigCard label="GPU TEMP" value={live?.gpu?.tempC != null ? fmt(live.gpu.tempC) : null} unit="°C" sub={live?.gpu ? (live.gpu.throttleReasons.length ? live.gpu.throttleReasons[0] : 'no clock limits') : live?.gpuStatus} tone={(live?.gpu?.tempC ?? 0) >= 83 ? 'warn' : undefined} />
         <div className="card col-span-2 p-5">
           <div className="label">BOTTLENECK DETECTION</div>
-          <div className={`mt-3 font-display text-[17px] font-bold leading-snug ${live?.bottleneck ? 'text-lilac' : 'text-[#56625b]'}`}>{live?.bottleneck ?? 'Unavailable'}</div>
+          <div className={`mt-3 font-display text-[17px] font-bold leading-snug ${live?.bottleneck ? 'text-lilac' : 'text-[#6b5d85]'}`}>{live?.bottleneck ?? 'Unavailable'}</div>
           <div className="mt-2 text-xs text-muted">{live?.bottleneck ? 'Live, from measured CPU/GPU busy time, utilization, VRAM, RAM and temperatures.' : 'Appears while Fortnite runs with FPS capture (TWECD as administrator). Full evidence report on the FPS Optimizer page.'}</div>
         </div>
         <BigCard label="PING" value={net?.latency != null ? fmt(net.latency, 0) : null} unit="ms" sub={net ? `avg ${fmt(net.avg, 0, ' ms')} · jitter ${fmt(net.jitter, 1, ' ms')}` : live?.netStatus} data={series.ping} color="#c084fc" />
@@ -145,7 +148,7 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
       {/* SCAN REPORT */}
       {boost.phase !== 'idle' && (
         <Card title={boost.phase === 'scanning' ? 'Scanning' : 'Scan results'} right={<span className="num text-sm text-neon">{Math.round(pct)}%</span>}>
-          <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-gradient-to-r from-neon2 to-neon shadow-neon transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+          <div className="mb-4 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-gradient-to-r from-purple to-neon shadow-neon transition-all duration-500" style={{ width: `${pct}%` }} /></div>
           <div className="grid grid-cols-5 gap-x-6 gap-y-3">
             {boost.steps.map((s, i) => (
               <div key={s.id} className="flex min-w-0 items-start gap-2.5">
@@ -213,17 +216,17 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
 }
 
 const rank = (f: { severity: string }) => ({ bad: 3, warn: 2, info: 1, good: 0 } as Record<string, number>)[f.severity] ?? 0;
-const StatusDot = ({ ok }: { ok: boolean }) => <span className={`h-2 w-2 rounded-full ${ok ? 'bg-neon shadow-neon' : 'bg-[#3a4840]'}`} />;
+const StatusDot = ({ ok }: { ok: boolean }) => <span className={`h-2 w-2 rounded-full ${ok ? 'bg-neon shadow-neon' : 'bg-[#4a3b66]'}`} />;
 
 function BigCard({ label, value, unit, sub, data, color = '#39FF14', max, accent, tone }: { label: string; value: string | null; unit?: string; sub?: string; data?: (number | null)[]; color?: string; max?: number; accent?: boolean; tone?: 'warn' }) {
   const un = value === null || value === 'Unavailable';
   const pts = (data ?? []).map((v, i) => ({ i, v }));
   const has = pts.some((p) => p.v !== null);
   return (
-    <div className={`card card-hover relative overflow-hidden p-5 ${accent ? 'border-neon/30' : ''}`}>
+    <div className={`card card-hover relative overflow-hidden p-5 ${accent ? 'border-purple/50 shadow-purple' : ''}`}>
       <div className="label">{label}</div>
-      <div className={`mt-2 flex items-baseline gap-1 ${un ? 'text-[#56625b]' : tone === 'warn' ? 'text-warn' : accent ? 'text-neon' : 'text-white'}`}>
-        <span className={`num font-bold ${un ? 'text-lg' : 'text-[40px] leading-none'}`}>{un ? 'Unavailable' : value}</span>
+      <div className={`mt-2 flex items-baseline gap-1 ${un ? 'text-[#6b5d85]' : tone === 'warn' ? 'text-warn' : accent ? 'text-neon' : 'text-white'}`}>
+        <span className={`num whitespace-nowrap font-bold ${un ? 'text-lg' : 'text-[clamp(24px,2.3vw,44px)] leading-none'}`}>{un ? 'Unavailable' : value}</span>
         {!un && unit && <span className="text-base font-semibold text-muted">{unit}</span>}
       </div>
       <div className="mt-1.5 h-4 truncate text-xs text-muted" title={sub}>{sub}</div>
@@ -249,11 +252,11 @@ function BigButton({ phase, pct, onClick }: { phase: string; pct: number; onClic
     <button onClick={onClick} disabled={busy} className="group relative flex h-[290px] w-[290px] items-center justify-center rounded-full outline-none" aria-label="Max FPS - optimize everything">
       {!busy && <span className="absolute inset-6 rounded-full border-2 border-purple/60 animate-pulseRing" />}
       <svg className="absolute inset-0 -rotate-90" width="290" height="290">
-        <circle cx="145" cy="145" r={r} fill="none" stroke="#132019" strokeWidth="6" />
+        <circle cx="145" cy="145" r={r} fill="none" stroke="#21163a" strokeWidth="6" />
         <circle cx="145" cy="145" r={r} fill="none" stroke="#39FF14" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: 'stroke-dashoffset .5s', filter: 'drop-shadow(0 0 8px #39FF14)' }} />
       </svg>
       <span className={`absolute inset-[30px] rounded-full border border-neon/20 ${busy ? 'animate-spinSlow' : ''}`} style={{ background: 'conic-gradient(from 0deg, transparent 0 70%, rgba(57,255,20,0.25) 85%, transparent)' }} />
-      <span className="relative flex h-[200px] w-[200px] flex-col items-center justify-center rounded-full bg-gradient-to-b from-[#0f1a13] to-[#060a07] shadow-purpleLg transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-[0.98] group-disabled:scale-100">
+      <span className="relative flex h-[200px] w-[200px] flex-col items-center justify-center rounded-full bg-gradient-to-b from-[#170f26] to-[#08050d] shadow-purpleLg transition-transform duration-200 group-hover:scale-[1.03] group-active:scale-[0.98] group-disabled:scale-100">
         {busy ? <Loader2 size={44} className="animate-spin text-purple" /> : <Rocket size={44} className="text-purple drop-shadow-[0_0_12px_#B44CFF]" />}
         <span className="mt-3 font-display text-[26px] font-extrabold leading-tight tracking-[0.14em] text-white">{busy ? (phase === 'scanning' ? 'SCANNING' : 'APPLYING') : 'MAX FPS'}</span>
         <span className="mt-1 font-display text-[10.5px] font-semibold tracking-[0.22em] text-purple">{busy ? `${Math.round(pct)}%` : 'OPTIMIZE EVERYTHING'}</span>
@@ -277,7 +280,7 @@ function RecRow({ r, checked, onToggle, manual, pids, setPids, startupSel, setSt
     <div className={`rounded-xl border p-4 transition-colors ${checked ? 'border-neon/40 bg-neon/[0.04]' : 'border-line bg-panel2/50'}`}>
       <div className="flex items-start gap-3">
         {!manual ? (
-          <button onClick={onToggle} className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? 'border-neon bg-neon text-black' : 'border-[#3a4840]'}`} aria-label="Select">{checked && <CheckCircle2 size={14} />}</button>
+          <button onClick={onToggle} className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? 'border-neon bg-neon text-black' : 'border-[#4a3b66]'}`} aria-label="Select">{checked && <CheckCircle2 size={14} />}</button>
         ) : <Info size={18} className="mt-0.5 shrink-0 text-sky-300" />}
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -287,7 +290,7 @@ function RecRow({ r, checked, onToggle, manual, pids, setPids, startupSel, setSt
             {!manual && (r.reversible ? <Badge tone="good">REVERSIBLE</Badge> : <Badge tone="warn">NOT REVERSIBLE</Badge>)}
             {r.needsAdmin && <Badge tone="info">NEEDS ADMIN</Badge>}{r.rebootRequired && <Badge tone="info">RESTART PC</Badge>}
           </div>
-          <div className="mt-1 text-sm text-[#c3cdc7]">{r.why}</div>
+          <div className="mt-1 text-sm text-[#cfc3e3]">{r.why}</div>
           <div className="mt-1 text-xs text-muted"><span className="text-neon2">What changes:</span> {r.change}</div>
           {r.startup && checked && setStartupSel && startupSel && (
             <div className="mt-3 grid grid-cols-2 gap-2">
@@ -323,7 +326,7 @@ function StepIcon({ status }: { status: StepStatus }) {
   if (status === 'done') return <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-neon" />;
   if (status === 'unavailable') return <MinusCircle size={18} className="mt-0.5 shrink-0 text-muted" />;
   if (status === 'error') return <XCircle size={18} className="mt-0.5 shrink-0 text-bad" />;
-  return <CircleDashed size={18} className="mt-0.5 shrink-0 text-[#3a4840]" />;
+  return <CircleDashed size={18} className="mt-0.5 shrink-0 text-[#4a3b66]" />;
 }
 
 

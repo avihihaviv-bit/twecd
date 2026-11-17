@@ -43,7 +43,7 @@ export default function Hardware() {
           {g ? (g.throttleReasons.length ? g.throttleReasons.map((r) => <Badge key={r} tone={/thermal|slowdown|brake/i.test(r) ? 'bad' : 'warn'}>{r}</Badge>) : <Badge tone="good">None active</Badge>) : <span className="text-muted">Unavailable</span>}
           <button className="btn-ghost ml-auto !py-1.5 text-sm" onClick={() => api().openExternal('https://www.nvidia.com/en-us/software/nvidia-app/')}>Get latest NVIDIA driver</button>
         </div>
-        <div className="mt-3 rounded-xl border border-line bg-panel2/60 p-3 text-sm text-[#c3cdc7]">
+        <div className="mt-3 rounded-xl border border-line bg-panel2/60 p-3 text-sm text-[#cfc3e3]">
           <b className="text-neon">RTX 5060 tips:</b> Power management mode "Prefer maximum performance" for Fortnite, VSync off in driver and game, NVIDIA Reflex "On + Boost" in Fortnite, keep 1+ GB VRAM free (Textures Medium in Performance mode). Power-limit flags at full load are normal; thermal flags are not.
         </div>
       </Card>
@@ -87,7 +87,7 @@ export default function Hardware() {
             <span className="text-muted">Temperature</span><span className="text-white">{live?.cpu.tempC != null ? `${live.cpu.tempC} °C` : 'Unavailable (needs a motherboard sensor driver)'}</span>
             <span className="text-muted">Effective clock</span><span className="text-white">{live?.cpu.effectiveClockMHz != null ? `${(live.cpu.effectiveClockMHz / 1000).toFixed(2)} GHz` : 'Unavailable'}</span>
           </div>
-          <div className="mt-4 rounded-xl border border-line bg-panel2/60 p-3 text-[13px] text-[#c3cdc7]">
+          <div className="mt-4 rounded-xl border border-line bg-panel2/60 p-3 text-[13px] text-[#cfc3e3]">
             For 13th/14th-gen Intel CPUs: install the <b className="text-white">latest BIOS from your motherboard manufacturer</b> (it contains Intel's 0x12B+ microcode) and keep <b className="text-white">Intel Default Settings</b> enabled. TWECD never changes voltages, power limits or overclocking settings.
           </div>
         </Card>

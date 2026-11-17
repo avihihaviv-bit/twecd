@@ -13,6 +13,9 @@ import { getNetContext, runNetTest } from './services/network';
 import { readFortniteConfig, applyFortniteCap, applyFortniteProfile, isDx12, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
 import { PROFILES } from './services/fortniteConfig';
 import { Updater } from './services/updater';
+import { AutoMode } from './services/autoMode';
+import { plausibility, testRegions } from './services/regions';
+import { findPingKillers } from './services/processCatalog';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
 import { isAdmin, listProcesses, listUserStartup } from './services/windows';
@@ -28,6 +31,10 @@ const DEFAULT_SETTINGS: Settings = {
   livePingHost: '1.1.1.1',
   autoCheckUpdates: true,
   nvidiaChecklist: [],
+  autoMode: false,
+  autoProfile: 'high-fps',
+  autoLock: true,
+  autoLockTarget: 500,
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
     { label: 'Google DNS', host: '8.8.8.8' },
@@ -54,10 +61,12 @@ const hub = new MonitorHub({
   presentMonPath: pmPath,
   emit: (m) => win?.webContents.send(IPC.metrics, m),
   onFortniteStart: () => void runAutoBoost(),
+  onFortniteStop: () => void autoMode.run('after match'),
   pingHost: () => settings.livePingHost,
   isDx12: () => isDx12(),
 });
 const updater = new Updater((s) => win?.webContents.send(IPC.updateStatus, s));
+let autoMode: AutoMode;
 const optimizer = new Optimizer(
   new JsonStore<Backup>(ud(), 'backup.json', { createdAt: 0 }),
   new JsonStore<{ entries: ChangeLogEntry[] }>(ud(), 'changelog.json', { entries: [] }),
@@ -65,6 +74,7 @@ const optimizer = new Optimizer(
   () => hub.latest?.fortnite.running ?? false,
   async () => staticInfo?.isAdmin ?? (await isAdmin()),
 );
+autoMode = new AutoMode(optimizer, () => settings, () => hub.latest?.fortnite.running ?? false, () => hub.getSession().last, path.join(ud(), 'fortnite-backup'), (s) => win?.webContents.send(IPC.autoStatus, s));
 
 /** Auto-Boost: when Fortnite starts, close ONLY the apps the user ticked in Settings (never system or anti-cheat). */
 async function runAutoBoost() {
@@ -191,6 +201,14 @@ function registerIpc() {
   handle(IPC.updateDownload, null, () => updater.download());
   handle(IPC.updateInstall, null, () => updater.install());
   handle(IPC.updateGet, null, () => updater.status);
+  handle(IPC.autoGet, null, () => ({ ...autoMode.status, enabled: settings.autoMode }));
+  handle(IPC.autoRun, null, () => autoMode.run('manual'));
+  handle(IPC.regionTest, null, async (_a, e) => {
+    if (busy.net) throw new Error('A network test is already running');
+    busy.net = true;
+    try { const results = await testRegions(6, (d, t) => e.sender.send(IPC.regionProgress, { done: d, total: t })); return { results, ...plausibility(results) }; } finally { busy.net = false; }
+  });
+  handle(IPC.pingKillers, null, async () => findPingKillers(await listProcesses(false)));
 
   handle(IPC.benchRun, BenchSchema, async (req, e) => {
     if (busy.bench) throw new Error('A benchmark is already running');
@@ -210,6 +228,7 @@ function registerIpc() {
     settings = { ...settings, ...patch };
     settingsStore.write(settings);
     if (patch.monitorIntervalMs && patch.monitorIntervalMs !== prevInterval) hub.restart();
+    if (patch.autoMode === true || (settings.autoMode && (patch.autoProfile || patch.autoLock !== undefined || patch.autoLockTarget))) void autoMode.run(patch.autoMode ? 'turned on' : 'settings changed');
     return settings;
   });
   handle(IPC.pickPresentMon, null, async () => {
@@ -226,6 +245,7 @@ app.whenReady().then(() => {
   createWindow();
   hub.start();
   if (settings.autoCheckUpdates) setTimeout(() => void updater.check(), 8000);
+  if (settings.autoMode) setTimeout(() => void autoMode.run('startup'), 10000);
 });
 app.on('window-all-closed', () => { hub.shutdown(); app.quit(); });
 app.on('web-contents-created', (_e, wc) => wc.on('will-attach-webview', (ev) => ev.preventDefault()));

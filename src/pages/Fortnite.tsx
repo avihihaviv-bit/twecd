@@ -43,7 +43,7 @@ export default function Fortnite() {
       {msg && <div className="-mt-3 mb-4 text-sm text-neon2">{msg}</div>}
 
       <div className={`card mb-6 flex items-center gap-4 p-5 ${running ? 'border-neon/40' : ''}`}>
-        <span className={`h-3 w-3 rounded-full ${running ? 'bg-neon shadow-neon animate-pulse' : 'bg-[#3a4840]'}`} />
+        <span className={`h-3 w-3 rounded-full ${running ? 'bg-neon shadow-neon animate-pulse' : 'bg-[#4a3b66]'}`} />
         <div className="flex-1">
           <div className="font-display text-lg font-bold tracking-wider text-white">{running ? 'FORTNITE DETECTED' : 'FORTNITE NOT RUNNING'}</div>
           <div className="text-sm text-muted">{running ? `PID ${live?.fortnite.pid} · ${live?.fpsStatus}` : 'Monitoring starts automatically when the game launches. Keep TWECD open or minimized.'}</div>
@@ -91,7 +91,7 @@ export default function Fortnite() {
                   {cfg.settings.map((s) => (
                     <tr key={s.key} className="border-t border-line/60" title={s.note}>
                       <td className="py-2 font-semibold text-white">{s.label}</td>
-                      <td className={`py-2 ${s.current === null ? 'text-[#56625b]' : ''}`}>{s.current ?? 'Not set'}</td>
+                      <td className={`py-2 ${s.current === null ? 'text-[#6b5d85]' : ''}`}>{s.current ?? 'Not set'}</td>
                       <td className="py-2 text-neon2">{s.recommended}</td>
                       <td className="py-2 text-right">{s.ok === true ? <CheckCircle2 size={16} className="inline text-neon" /> : s.ok === false ? <XCircle size={16} className="inline text-warn" /> : <HelpCircle size={16} className="inline text-muted" />}</td>
                     </tr>
@@ -104,7 +104,7 @@ export default function Fortnite() {
         </Card>
         <div className="flex flex-col gap-6">
           <Card title="Performance Mode">
-            <ul className="space-y-2 text-sm text-[#c3cdc7]">
+            <ul className="space-y-2 text-sm text-[#cfc3e3]">
               <li><b className="text-white">Rendering Mode: Performance</b> - the highest-FPS mode in Fortnite; lowest CPU and VRAM cost. Needs a game restart.</li>
               <li><b className="text-white">3D Resolution 100%</b>, View Distance Medium/Far, Textures Medium, Meshes Low.</li>
               <li><b className="text-white">Frame Rate Limit: Unlimited</b> while chasing max FPS. If frame times swing, cap ~10% below your average.</li>
@@ -140,4 +140,4 @@ export default function Fortnite() {
     </div>
   );
 }
-const KV = ({ k, v }: { k: string; v: string }) => <div className="rounded-lg border border-line bg-panel2/60 p-2"><div className="label">{k}</div><div className={`num font-bold ${v === 'Unavailable' ? 'text-xs text-[#56625b]' : 'text-white'}`}>{v}</div></div>;
+const KV = ({ k, v }: { k: string; v: string }) => <div className="rounded-lg border border-line bg-panel2/60 p-2"><div className="label">{k}</div><div className={`num font-bold ${v === 'Unavailable' ? 'text-xs text-[#6b5d85]' : 'text-white'}`}>{v}</div></div>;

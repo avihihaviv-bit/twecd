@@ -162,7 +162,7 @@ export interface ScanResult {
   notApplied: { title: string; reason: string }[];
 }
 
-export interface ApplyRequest { ids: OptimizationId[]; pids?: number[]; startupNames?: string[] }
+export interface ApplyRequest { ids: OptimizationId[]; pids?: number[]; startupNames?: string[]; skipRestorePoint?: boolean }
 export type ApplyStatus = 'success' | 'failed' | 'unavailable' | 'skipped';
 export interface ApplyItemResult { id: OptimizationId; title: string; status: ApplyStatus; message: string; before?: string; after?: string; verified?: boolean | null }
 export interface ApplyResult { results: ApplyItemResult[]; backupSaved: boolean; restorePoint?: { ok: boolean; message: string } | null }
@@ -226,6 +226,10 @@ export interface Settings {
   livePingHost: string;
   autoCheckUpdates: boolean;
   nvidiaChecklist: string[];
+  autoMode: boolean;
+  autoProfile: FortniteProfileId;
+  autoLock: boolean;
+  autoLockTarget: number;
   autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
 }
 
@@ -233,3 +237,7 @@ export type FortniteProfileId = 'ultra' | 'competitive' | 'high-fps' | 'stabilit
 export interface FortniteProfileInfo { id: FortniteProfileId; name: string; summary: string; needsCap: boolean }
 
 export interface UpdateStatus { state: 'idle' | 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error' | 'disabled'; version?: string; percent?: number; message?: string }
+
+export interface RegionResult { id: string; name: string; location: string; samples: (number | null)[]; best: number | null; median: number | null; jitter: number | null; lossPct: number }
+export interface PingKiller { name: string; pid: number; reason: string; closable: boolean }
+export interface AutoModeStatus { enabled: boolean; lastRun: number | null; trigger: string | null; changed: string[]; skipped: number; failed: string[]; lock: string | null }
