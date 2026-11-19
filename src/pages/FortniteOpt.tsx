@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { PageHeader } from '../components/ui';
 import Fortnite from './Fortnite';
 import Stability from './Stability';
+import { Tuner } from '../components/Tuner';
 
 export default function FortniteOpt() {
   const [tab, setTab] = useState<'settings' | 'fps'>('settings');
@@ -13,6 +14,7 @@ export default function FortniteOpt() {
           <button key={id} onClick={() => setTab(id)} className={`rounded-lg px-5 py-2 text-sm font-semibold transition-colors ${tab === id ? 'bg-purple text-white shadow-purple' : 'text-muted hover:text-white'}`}>{l}</button>
         ))}
       </div>
+      <div className="mb-6"><Tuner /></div>
       {tab === 'settings' ? <Fortnite embedded /> : <Stability embedded />}
       <div className="mt-6 rounded-xl border border-line bg-panel2/50 p-4 text-sm text-muted">
         <b className="text-white">Set in-game (not stored in the file TWECD edits):</b> NVIDIA Reflex On + Boost (Video), Replays Off (Game), Meshes Low (Video, Performance mode), Multithreaded Rendering On (DirectX 12 only). Fortnite updates occasionally rewrite its settings file; Auto Mode re-applies your profile after every match.

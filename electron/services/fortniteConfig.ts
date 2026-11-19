@@ -242,3 +242,31 @@ export function detectProfile(text: string): FortniteProfileId | null {
   if (cap > 0) return 'stability';
   return 'high-fps';
 }
+
+// ---------- FPS Tuner: one measured step at a time, chosen by the measured bottleneck ----------
+export interface TuneStep { key: string; section: string; from: string | null; to: string; label: string; why: string }
+
+/** Ladders per bottleneck. GPU-bound: lower GPU work (3D resolution floor 70%). CPU-bound: lower CPU work (view distance). */
+export function nextTuneStep(text: string, kind: 'gpu' | 'cpu' | 'engine' | string): TuneStep | null {
+  const ini = parseIni(text);
+  const res = parseFloat(ini.get('sg.resolutionquality') ?? '100');
+  const vd = parseInt(ini.get('sg.viewdistancequality') ?? '2', 10);
+  const tex = parseInt(ini.get('sg.texturequality') ?? '0', 10);
+  if (kind === 'gpu') {
+    if (tex > 0) return { key: 'sg.TextureQuality', section: 'ScalabilityGroups', from: String(tex), to: '0', label: 'Textures: Low', why: 'GPU-bound: lower textures reduce GPU memory traffic.' };
+    const steps = [90, 80, 70];
+    const next = steps.find((s) => s < res - 0.5);
+    if (next === undefined) return null;
+    return { key: 'sg.ResolutionQuality', section: 'ScalabilityGroups', from: `${res.toFixed(0)}%`, to: next.toFixed(6), label: `3D Resolution: ${next}%`, why: `GPU-bound: rendering ${next}% of the pixels cuts GPU time per frame. Below 70% the image gets too blurry, so TWECD stops there.` };
+  }
+  if (kind === 'cpu' || kind === 'engine') {
+    if (vd > 1) return { key: 'sg.ViewDistanceQuality', section: 'ScalabilityGroups', from: String(vd), to: '1', label: 'View Distance: Medium', why: 'CPU-bound: fewer distant objects means less CPU work per frame. Players still render at all distances.' };
+    if (vd === 1) return { key: 'sg.ViewDistanceQuality', section: 'ScalabilityGroups', from: '1', to: '0', label: 'View Distance: Near', why: 'CPU-bound: the last CPU-side setting. Buildings and terrain far away pop in later.' };
+    return null;
+  }
+  return null;
+}
+
+export function applyTuneStep(text: string, step: TuneStep): { text: string; changed: string[] } {
+  return applyTargets(text, [{ section: step.section, key: step.key, value: step.to, label: step.label, force: true }]);
+}

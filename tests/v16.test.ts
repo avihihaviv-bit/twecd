@@ -71,3 +71,25 @@ describe('misc parsers', () => {
     expect(canWriteKey('HKU\\S-1-5-20\\Software\\Microsoft\\Windows Defender')).toBe(false);
   });
 });
+
+import { nextTuneStep, applyTuneStep } from '../electron/services/fortniteConfig';
+describe('FPS Tuner', () => {
+  const ini = (res: number, vd: number, tex = 0) => `[ScalabilityGroups]\nsg.ResolutionQuality=${res}.000000\nsg.ViewDistanceQuality=${vd}\nsg.TextureQuality=${tex}\n`;
+  it('GPU-bound: textures first, then 3D resolution 90 -> 80 -> 70, then stops', () => {
+    expect(nextTuneStep(ini(100, 2, 1), 'gpu')!.label).toBe('Textures: Low');
+    let t = ini(100, 2);
+    const labels: string[] = [];
+    for (let i = 0; i < 5; i++) { const s = nextTuneStep(t, 'gpu'); if (!s) break; labels.push(s.label); t = applyTuneStep(t, s).text; }
+    expect(labels).toEqual(['3D Resolution: 90%', '3D Resolution: 80%', '3D Resolution: 70%']);
+    expect(t).toContain('sg.ResolutionQuality=70.000000');
+  });
+  it('CPU-bound: view distance Far -> Medium -> Near, never touches resolution', () => {
+    let t = ini(100, 2);
+    const s1 = nextTuneStep(t, 'cpu')!; t = applyTuneStep(t, s1).text;
+    const s2 = nextTuneStep(t, 'cpu')!; t = applyTuneStep(t, s2).text;
+    expect([s1.label, s2.label]).toEqual(['View Distance: Medium', 'View Distance: Near']);
+    expect(nextTuneStep(t, 'cpu')).toBeNull();
+    expect(t).toContain('sg.ResolutionQuality=100.000000');
+  });
+  it('does nothing for other bottlenecks', () => expect(nextTuneStep(ini(100, 2), 'ram')).toBeNull());
+});

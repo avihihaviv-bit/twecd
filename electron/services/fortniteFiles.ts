@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { FortniteConfigReport } from '../../shared/types';
-import { analyzeFortniteConfig, applyMaxFps, applyProfile, detectProfile, setFrameRateLimit } from './fortniteConfig';
+import { analyzeFortniteConfig, applyMaxFps, applyProfile, applyTuneStep, detectProfile, nextTuneStep, setFrameRateLimit, type TuneStep } from './fortniteConfig';
 import type { FortniteProfileId } from '../../shared/types';
 
 export function fortniteConfigPath(): string {
@@ -102,4 +102,19 @@ export function applyFortniteProfile(backupDir: string, id: FortniteProfileId, c
     return { ok: false, message: code === 'EPERM' || code === 'EACCES' ? 'The settings file is read-only. Right-click GameUserSettings.ini > Properties, untick "Read-only", then try again.' : `Could not write the settings file (${code ?? e}).`, changed: [] };
   }
   return { ok: true, message: `Changed: ${[...new Set(res.changed)].join(', ')}. Start Fortnite to use it.`, changed: res.changed };
+}
+
+export function previewTune(kind: string): TuneStep | null { try { return nextTuneStep(readText(fortniteConfigPath()).text, kind); } catch { return null; } }
+
+export function applyTune(backupDir: string, kind: string): { ok: boolean; message: string; step: TuneStep | null } {
+  const p = fortniteConfigPath();
+  if (!fs.existsSync(p)) return { ok: false, message: 'Fortnite settings file not found.', step: null };
+  const src = readText(p);
+  const step = nextTuneStep(src.text, kind);
+  if (!step) return { ok: false, message: kind === 'gpu' ? 'Already at the lowest sensible GPU settings (3D Resolution 70%, Textures Low).' : 'No CPU-side setting left to lower: the limit is now the CPU/memory itself (check XMP in the BIOS Guide).', step: null };
+  fs.mkdirSync(backupDir, { recursive: true });
+  const bak = fortniteBackupPath(backupDir);
+  if (!fs.existsSync(bak)) fs.copyFileSync(p, bak);
+  try { writeText(p, applyTuneStep(src.text, step).text, src.enc, src.bom); } catch (e) { return { ok: false, message: `Could not write the settings file (${(e as NodeJS.ErrnoException).code ?? e}).`, step: null }; }
+  return { ok: true, message: `${step.label} applied. Play the same scenario and benchmark to see if it helped.`, step };
 }

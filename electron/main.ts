@@ -10,7 +10,7 @@ import { collectStaticInfo } from './services/staticInfo';
 import { runScan } from './services/scan';
 import { Optimizer, type Backup } from './services/optimizer';
 import { getNetContext, runNetTest } from './services/network';
-import { readFortniteConfig, applyFortniteCap, applyFortniteProfile, isDx12, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
+import { readFortniteConfig, applyFortniteCap, applyFortniteProfile, applyTune, isDx12, previewTune, FORTNITE_LAUNCH_URI } from './services/fortniteFiles';
 import { PROFILES } from './services/fortniteConfig';
 import { Updater } from './services/updater';
 import { AutoMode } from './services/autoMode';
@@ -213,6 +213,20 @@ function registerIpc() {
   });
   handle(IPC.pingKillers, null, async () => findPingKillers(await listProcesses(false)));
   handle(IPC.optStatus, null, () => optimizer.status());
+  handle(IPC.tuneGet, null, () => {
+    const s = hub.getSession(); const sess = s.current ?? s.last;
+    const d = sess?.diagnosis[0] ?? null;
+    const kind = d && ['gpu', 'cpu', 'engine'].includes(d.kind) ? d.kind : null;
+    return { kind, title: d?.title ?? null, evidence: d?.evidence ?? [], step: kind ? previewTune(kind) : null, samples: sess?.fpsSamples ?? 0 };
+  });
+  handle(IPC.tuneApply, null, () => {
+    if (hub.latest?.fortnite.running) return { ok: false, message: 'Close Fortnite first: the game overwrites its settings file when it exits.', step: null };
+    const s = hub.getSession(); const d = (s.current ?? s.last)?.diagnosis[0];
+    if (!d || !['gpu', 'cpu', 'engine'].includes(d.kind)) return { ok: false, message: 'Play one match with FPS capture first so TWECD knows what limits your FPS.', step: null };
+    const r = applyTune(path.join(ud(), 'fortnite-backup'), d.kind);
+    if (r.ok && r.step) optimizer.note(`FPS Tuner (${d.kind}-bound)`, `${r.step.label} (was ${r.step.from ?? 'default'})`);
+    return r;
+  });
   handle(IPC.adapters, null, () => networkAdapters());
   handle(IPC.hwinfo, null, () => readHwinfo());
   handle(IPC.bufferbloat, null, async (_a, e) => {

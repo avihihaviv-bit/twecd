@@ -5,6 +5,7 @@ import type {
 } from '../../shared/types';
 
 type Off = () => void;
+export interface TuneStepInfo { key: string; from: string | null; to: string; label: string; why: string }
 export interface TwecdApi {
   getStatic(): Promise<StaticInfo>;
   setVisible(v: boolean): Promise<void>;
@@ -42,6 +43,8 @@ export interface TwecdApi {
   onRegionProgress(cb: (p: { done: number; total: number }) => void): Off;
   pingKillers(): Promise<PingKiller[]>;
   optStatus(): Promise<OptStatus[]>;
+  tuneGet(): Promise<{ kind: string | null; title: string | null; evidence: string[]; step: TuneStepInfo | null; samples: number }>;
+  tuneApply(): Promise<{ ok: boolean; message: string; step: TuneStepInfo | null }>;
   adapters(): Promise<AdapterInfo[]>;
   hwinfo(): Promise<HwSensor[] | null>;
   bufferbloat(): Promise<BufferbloatResult>;

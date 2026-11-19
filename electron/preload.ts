@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('twecd', {
   onRegionProgress: on(IPC.regionProgress),
   pingKillers: () => invoke(IPC.pingKillers),
   optStatus: () => invoke(IPC.optStatus),
+  tuneGet: () => invoke(IPC.tuneGet),
+  tuneApply: () => invoke(IPC.tuneApply),
   adapters: () => invoke(IPC.adapters),
   hwinfo: () => invoke(IPC.hwinfo),
   bufferbloat: () => invoke(IPC.bufferbloat),
