@@ -87,8 +87,9 @@ export default function Settings() {
             <div className="space-y-3 text-sm">
               <label className="flex cursor-pointer items-center gap-3"><input id="auto-check-updates" type="checkbox" className="accent-[#39FF14]" checked={s.autoCheckUpdates} onChange={(e) => patch({ autoCheckUpdates: e.target.checked })} /> Check for updates when TWECD starts (nothing is downloaded without your click)</label>
               <div className="flex flex-wrap items-center gap-2">
-                <button className="btn-ghost text-sm" disabled={upd.state === 'checking' || upd.state === 'downloading'} onClick={() => api().updateCheck().then(setUpd)}>Check now</button>
-                {upd.state === 'available' && <button className="btn-primary text-sm" onClick={() => api().updateDownload()}>Download v{upd.version}</button>}
+                <button className="btn-ghost text-sm" disabled={upd.state === 'checking' || upd.state === 'downloading'} onClick={() => { setUpd({ state: 'checking' }); api().updateCheck().then(setUpd).catch((e) => setUpd({ state: 'error', message: errMsg(e) })); }}>Check now</button>
+                {upd.state === 'available' && <button className="btn-primary text-sm" onClick={() => api().updateDownload().catch((e) => setUpd({ state: 'error', message: errMsg(e) }))}>Download v{upd.version}</button>}
+                {upd.state === 'error' && <button className="btn-ghost text-sm" onClick={() => api().openExternal('https://github.com/avihihaviv-bit/twecd/releases/latest')}>Download manually</button>}
                 {upd.state === 'ready' && <button className="btn-primary text-sm" onClick={() => api().updateInstall()}>Restart & install v{upd.version}</button>}
                 <span className="text-muted">{({ idle: '', checking: 'Checking...', none: 'You have the latest version.', available: `Version ${upd.version} is available.`, downloading: `Downloading ${upd.percent ?? 0}%...`, ready: 'Downloaded. Install when you are ready.', error: `Update error: ${upd.message}`, disabled: upd.message ?? '' } as Record<string, string>)[upd.state]}</span>
               </div>

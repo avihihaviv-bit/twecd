@@ -31,6 +31,7 @@ const ALLOWED_EXTERNAL = [
   /^ms-settings:(gaming-gamemode|gaming-gamedvr|startupapps|powersleep|display-advancedgraphics|network-status|windowsupdate)$/,
   /^https:\/\/(www\.)?nvidia\.com\//,
   /^https:\/\/github\.com\/GameTechDev\/PresentMon/,
+  /^https:\/\/github\.com\/avihihaviv-bit\/twecd\/releases/,
   /^https:\/\/(www\.)?epicgames\.com\//,
   /^https:\/\/(www\.)?gigabyte\.com\//,
   /^https:\/\/(www\.)?hwinfo\.com\//,
