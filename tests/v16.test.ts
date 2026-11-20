@@ -63,7 +63,7 @@ describe('misc parsers', () => {
     expect(parseAdapters('')).toEqual([]);
   });
   it('board revision ignores OEM placeholders', () => {
-    expect(parseProbe(JSON.stringify({ board: 'Gigabyte Technology Co., Ltd. B760 GAMING X AX DDR5', boardRev: 'x.x' }))!.boardRevision).toBe('x.x');
+    expect(parseProbe(JSON.stringify({ board: 'Gigabyte Technology Co., Ltd. B760 GAMING X AX DDR5', boardRev: '1.0' }))!.boardRevision).toBe('1.0');
     expect(parseProbe(JSON.stringify({ board: 'X', boardRev: 'Default string' }))!.boardRevision).toBeNull();
   });
   it('allows writing Delivery Optimization only at its exact key', () => {
@@ -92,4 +92,25 @@ describe('FPS Tuner', () => {
     expect(t).toContain('sg.ResolutionQuality=100.000000');
   });
   it('does nothing for other bottlenecks', () => expect(nextTuneStep(ini(100, 2), 'ram')).toBeNull());
+});
+
+import { xmpActive } from '../electron/services/winProbe';
+import { parseRegQuery } from '../electron/services/windows';
+describe('BIOS guide detection bugs (seen on the real PC)', () => {
+  it('DDR5-6000 is XMP/EXPO even when Windows reports 6000 as the rated speed too', () => {
+    expect(xmpActive('DDR5', 6000, 6000)).toBe(true);
+    expect(xmpActive('DDR5', 4800, 4800)).toBe(false);
+    expect(xmpActive('DDR5', 5200, 5200)).toBeNull();
+    expect(xmpActive('DDR4', 3600, 3600)).toBe(true);
+    expect(xmpActive('DDR5', null, null)).toBeNull();
+  });
+  it('reads registry values whose names contain spaces (CPU microcode)', () => {
+    const out = '\r\nHKEY_LOCAL_MACHINE\\HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0\r\n    Update Revision    REG_BINARY    000000002B010000\r\n\r\nEnd of search: 1 match(es) found.\r\n';
+    expect(parseRegQuery(out, 'Update Revision')).toEqual({ type: 'REG_BINARY', data: '000000002B010000' });
+    expect(parseRegQuery('    AutoGameModeEnabled    REG_DWORD    0x1\r\n', 'AutoGameModeEnabled')).toEqual({ type: 'REG_DWORD', data: '0x1' });
+    expect(parseRegQuery('    Other    REG_SZ    x\r\n', 'Missing')).toBeNull();
+  });
+  it('board revision x.x placeholder is treated as not reported', () => {
+    expect(parseProbe(JSON.stringify({ board: 'Gigabyte B760', boardRev: 'x.x' }))!.boardRevision).toBeNull();
+  });
 });

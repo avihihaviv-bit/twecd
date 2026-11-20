@@ -12,10 +12,17 @@ export async function regQuery(key: string, value: string): Promise<RegValue | n
   if (!isWin) return null;
   const r = await run('reg', ['query', key, '/v', value]);
   if (r.code !== 0) return null;
-  const line = r.stdout.split(/\r?\n/).find((l) => l.trim().toLowerCase().startsWith(value.toLowerCase() + ' '));
-  if (!line) return null;
-  const m = line.trim().match(/^\S+\s+(REG_\w+)\s*(.*)$/);
-  return m ? { type: m[1], data: m[2].trim() } : null;
+  return parseRegQuery(r.stdout, value);
+}
+
+/** Parses `reg query /v` output. Value names may contain spaces (e.g. "Update Revision"). */
+export function parseRegQuery(stdout: string, value: string): RegValue | null {
+  const want = value.toLowerCase();
+  for (const raw of stdout.split(/\r?\n/)) {
+    const m = raw.trim().match(/^(.+?)\s+(REG_[A-Z_]+)\s*(.*)$/);
+    if (m && m[1].toLowerCase() === want) return { type: m[2], data: m[3].trim() };
+  }
+  return null;
 }
 
 export const dwordOf = (v: RegValue | null): number | null => (v ? parseInt(v.data, v.data.startsWith('0x') ? 16 : 10) : null);

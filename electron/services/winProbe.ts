@@ -40,7 +40,7 @@ export function parseProbe(json: string): WinProbe | null {
     sizeMB: Math.round(m.cap / 1048576), speedMHz: num(m.conf) ?? num(m.speed), ratedMHz: num(m.speed),
     type: MEM_TYPES[m.type] ?? null, slot: [m.loc, m.bank].filter(Boolean).join(' / ') || null,
   }));
-  return { display, modules, biosVendor: o.bios?.vendor ?? null, biosVersion: o.bios?.ver ?? null, biosDate: o.bios?.date ?? null, board: o.board ?? null, boardRevision: typeof o.boardRev === 'string' && o.boardRev.trim() && !/default string|to be filled/i.test(o.boardRev) ? o.boardRev.trim() : null };
+  return { display, modules, biosVendor: o.bios?.vendor ?? null, biosVersion: o.bios?.ver ?? null, biosDate: o.bios?.date ?? null, board: o.board ?? null, boardRevision: typeof o.boardRev === 'string' && o.boardRev.trim() && !/default string|to be filled|^x\.x$|^n\/a$/i.test(o.boardRev.trim()) ? o.boardRev.trim() : null };
 }
 
 /** Channel layout from slot names such as "ChannelA-DIMM1", "DIMM_B2", "A2". */
@@ -81,3 +81,17 @@ export const INTEL_SAFE_MICROCODE = 0x12b;
 export const isRaptorLake = (model: string) => /i[3579]-1[34]\d{3}/i.test(model);
 
 export type { StaticInfo };
+
+/**
+ * Is XMP/EXPO active? Win32_PhysicalMemory often reports the XMP speed as the "rated" speed too,
+ * so comparing the two is unreliable. Use the configured speed against the JEDEC ceiling instead:
+ * DDR5 JEDEC tops out at 5600 MT/s, DDR4 at 3200 MT/s.
+ */
+export function xmpActive(type: string | null, configuredMHz: number | null, ratedMHz: number | null): boolean | null {
+  if (!configuredMHz) return null;
+  const jedecMax = type === 'DDR5' ? 5600 : type === 'DDR4' ? 3200 : null;
+  if (jedecMax === null) return ratedMHz ? (configuredMHz > ratedMHz ? true : null) : null;
+  if (configuredMHz > jedecMax) return true;
+  if (configuredMHz <= (type === 'DDR5' ? 4800 : 2666)) return false;
+  return null;
+}

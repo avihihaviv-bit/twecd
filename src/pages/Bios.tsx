@@ -18,7 +18,7 @@ export default function Bios() {
       title: 'Intel microcode 0x12B or newer (BIOS update)', state: mc === null ? 'unknown' : mc >= 0x12b ? 'ok' : 'action',
       found: mc === null ? 'Microcode revision not reported' : `Running microcode 0x${mc.toString(16).toUpperCase()}; BIOS ${r?.biosVersion ?? '?'}${r?.biosDate ? ` (${r.biosDate})` : ''}`,
       steps: [
-        `Find your board revision: printed on the motherboard near the bottom-left (e.g. "REV: 1.0") and on the box.${r?.boardRevision ? ` Windows reports: "${r.boardRevision}".` : ''} Download only the BIOS for exactly that revision.`,
+        `Find your board revision: printed on the motherboard near the bottom-left (e.g. "REV: 1.0") and on the box.${r?.boardRevision ? ` Windows reports: "${r.boardRevision}".` : ' Windows does not report it for this board, so read it from the board itself.'} Download only the BIOS for exactly that revision.`,
         'On gigabyte.com open B760 GAMING X AX DDR5 > Support > BIOS. Pick the newest release whose notes mention Intel microcode 0x12B or later (or "Intel Default Settings" / Vmin shift fix).',
         'Unzip it to a USB stick formatted FAT32.',
         'Restart, press DEL to enter the BIOS, then press F8 (Q-Flash). Choose "Update BIOS", select the file, confirm. Do NOT power off until it finishes and reboots by itself.',
@@ -74,7 +74,7 @@ export default function Bios() {
     <div className="animate-fadeUp">
       <PageHeader title="BIOS GUIDE" subtitle="Checks what Windows can read about your BIOS, then shows exact steps for the Gigabyte B760 GAMING X AX DDR5. TWECD never changes BIOS settings, never flashes the BIOS and never overclocks." />
       <div className="mb-6 grid grid-cols-4 gap-3">
-        {[['Motherboard', r?.board ?? 'Unknown'], ['Board revision (Windows)', r?.boardRevision ?? 'Unknown: check the board'], ['BIOS', r?.biosVersion ? `${r.biosVersion}${r.biosDate ? ` · ${r.biosDate}` : ''}` : 'Unknown'], ['CPU', r?.cpuModel ?? 'Unknown']].map(([k, v]) => (
+        {[['Motherboard', r?.board ?? 'Unknown'], ['Board revision', r?.boardRevision ?? 'Not reported: read it on the board (REV: x.x)'], ['BIOS', r?.biosVersion ? `${r.biosVersion}${r.biosDate ? ` · ${r.biosDate}` : ''}` : 'Unknown'], ['CPU', r?.cpuModel ?? 'Unknown']].map(([k, v]) => (
           <div key={k} className="card p-4"><div className="label">{k}</div><div className="mt-1 truncate font-semibold text-white" title={v}>{v}</div></div>
         ))}
       </div>

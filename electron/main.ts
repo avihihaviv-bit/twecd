@@ -22,6 +22,7 @@ import { isAdmin, listProcesses, listUserStartup, networkAdapters } from './serv
 import { readHwinfo } from './services/hwinfo';
 import { runBufferbloat } from './services/bufferbloat';
 import { parseBar1TotalMB, rebarEnabled } from './services/nvidiaParse';
+import { xmpActive } from './services/winProbe';
 import { isWin, run } from './services/exec';
 
 const DEV_URL = process.env.VITE_DEV_SERVER_URL;
@@ -246,7 +247,7 @@ function registerIpc() {
     const conf = mod?.speedMHz ?? null; const rated = mod?.ratedMHz ?? null;
     return {
       board: pi?.board ?? null, boardRevision: pi?.boardRevision ?? null, biosVersion: pi?.biosVersion ?? null, biosDate: pi?.biosDate ?? null, microcode: pi?.microcode ?? null,
-      ramConfiguredMHz: conf, ramRatedMHz: rated, xmp: conf && rated ? conf > rated : null,
+      ramConfiguredMHz: conf, ramRatedMHz: rated, xmp: xmpActive(mod?.type ?? null, conf, rated),
       bar1MB: bar1, rebar: rebarEnabled(bar1, staticInfo.gpu.vramTotalMB), cpuModel: staticInfo.cpu.model,
       pcie: pn && pn.length === 4 ? { genCur: pn[0], genMax: pn[1], widthCur: pn[2], widthMax: pn[3] } : null,
     };
