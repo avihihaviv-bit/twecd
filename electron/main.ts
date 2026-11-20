@@ -77,7 +77,7 @@ const optimizer = new Optimizer(
   () => hub.latest?.fortnite.running ?? false,
   async () => staticInfo?.isAdmin ?? (await isAdmin()),
 );
-autoMode = new AutoMode(optimizer, () => settings, () => hub.latest?.fortnite.running ?? false, () => hub.getSession().last, path.join(ud(), 'fortnite-backup'), (s) => win?.webContents.send(IPC.autoStatus, s));
+autoMode = new AutoMode(optimizer, () => settings, () => hub.latest?.fortnite.running ?? false, () => hub.getSession().last, path.join(ud(), 'fortnite-backup'), (s) => win?.webContents.send(IPC.autoStatus, s), () => staticInfo?.display?.currentHz ?? null);
 
 /** Auto-Boost: when Fortnite starts, close ONLY the apps the user ticked in Settings (never system or anti-cheat). */
 async function runAutoBoost() {
@@ -196,6 +196,8 @@ function registerIpc() {
   handle(IPC.fortniteApplyProfile, ProfileSchema, (req) => {
     if (!isWin) return { ok: false, message: 'Only available on Windows.', changed: [] };
     if (hub.latest?.fortnite.running) return { ok: false, message: 'Close Fortnite first: the game overwrites its settings file when it exits.', changed: [] };
+    const hz = staticInfo?.display?.currentHz ?? null;
+    if (req.profile === 'stability' && req.cap && hz && req.cap < hz) return { ok: false, message: `The measured lock (${req.cap} FPS) is below your ${hz} Hz monitor, which would only make it less smooth. Use High FPS or Ultra FPS instead.`, changed: [] };
     const r = applyFortniteProfile(path.join(ud(), 'fortnite-backup'), req.profile, req.cap);
     if (r.ok && r.changed.length) optimizer.note(`Fortnite profile: ${PROFILES[req.profile].name}`, r.message);
     return r;

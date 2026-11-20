@@ -10,8 +10,10 @@ export const AUTO_WINDOWS: OptimizationId[] = ['game-mode-on', 'power-plan-high'
  * Decides the Stable FPS Lock from REAL measured data:
  * the target (e.g. 500) only when the PC held it 90% of the last match, otherwise the highest FPS it actually held.
  */
-export function chooseLock(s: Pick<SessionSummary, 'sustainedFps' | 'recommendedCap'> | null, target: number): { cap: number; reason: string } | null {
+export function chooseLock(s: Pick<SessionSummary, 'sustainedFps' | 'recommendedCap'> | null, target: number, refreshHz: number | null = null): { cap: number; reason: string } | null {
   if (!s || s.sustainedFps === null || s.recommendedCap === null) return null;
+  // Never lock below the monitor's refresh rate: that only removes frames the screen could show.
+  if (refreshHz && s.recommendedCap < refreshHz && s.sustainedFps < target) return { cap: 0, reason: `Your PC held ${Math.round(s.sustainedFps)} FPS, below your ${refreshHz} Hz monitor. A lock below the refresh rate would only hurt, so FPS stays Unlimited.` };
   if (s.sustainedFps >= target) return { cap: target, reason: `Your PC held ${Math.round(s.sustainedFps)} FPS 90% of the last match, so it is locked at your ${target} FPS target.` };
   return { cap: s.recommendedCap, reason: `Your PC held ${Math.round(s.sustainedFps)} FPS 90% of the last match (below the ${target} target), so it is locked at ${s.recommendedCap}: the highest FPS it can keep stable.` };
 }
@@ -27,6 +29,7 @@ export class AutoMode {
     private lastSession: () => SessionSummary | null,
     private fortniteBackupDir: string,
     private emit: (s: AutoModeStatus) => void,
+    private refreshHz: () => number | null = () => null,
   ) { this.status.enabled = settings().autoMode; }
 
   async run(trigger: string): Promise<AutoModeStatus> {
@@ -48,12 +51,12 @@ export class AutoMode {
         const p = applyFortniteProfile(this.fortniteBackupDir, st.autoProfile, prof.needsCap ? sess?.recommendedCap ?? undefined : undefined);
         if (p.ok && p.changed.length) changed.push(`Fortnite profile: ${prof.name}`); else if (!p.ok) failed.push(`Fortnite profile: ${p.message}`); else skipped++;
         if (st.autoLock) {
-          const c = chooseLock(sess, st.autoLockTarget);
+          const c = chooseLock(sess, st.autoLockTarget, this.refreshHz());
           if (c) {
             const cur = readFortniteConfig().frameRateLimit ?? null;
             if (cur === null || Math.round(cur) !== c.cap) {
               const w = applyFortniteCap(this.fortniteBackupDir, c.cap);
-              if (w.ok) changed.push(`Stable FPS Lock: ${c.cap} FPS`); else failed.push(`FPS lock: ${w.message}`);
+              if (w.ok) changed.push(c.cap === 0 ? 'FPS lock: Unlimited' : `Stable FPS Lock: ${c.cap} FPS`); else failed.push(`FPS lock: ${w.message}`);
             } else skipped++;
             lock = c.reason;
           } else lock = 'Play one match with FPS capture on (TWECD as administrator) so Auto Mode can measure the right lock.';

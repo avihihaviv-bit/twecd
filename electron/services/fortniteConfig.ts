@@ -184,7 +184,11 @@ export function setFrameRateLimit(text: string, cap: number): string {
  * rounded down to a multiple of 10 (or 5 below 100). Null when there is not enough data (<60 s of play).
  */
 export function recommendCap(perSecondFps: number[]): { sustained: number; cap: number } | null {
-  const v = perSecondFps.filter((x) => Number.isFinite(x) && x > 0);
+  const all = perSecondFps.filter((x) => Number.isFinite(x) && x > 0);
+  if (all.length < 60) return null;
+  // Ignore loading screens, lobby and alt-tab seconds: far below the session median, not gameplay.
+  const med = [...all].sort((a, b) => a - b)[Math.floor(all.length / 2)];
+  const v = all.filter((x) => x >= med * 0.4);
   if (v.length < 60) return null;
   const sorted = [...v].sort((a, b) => a - b);
   const sustained = sorted[Math.floor(sorted.length * 0.1)];

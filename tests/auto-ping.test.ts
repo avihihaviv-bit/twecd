@@ -65,3 +65,17 @@ describe('Region measurement physics check', () => {
     expect(distanceKm({ lat: 35.7, lon: 139.7 }, { lat: 38.9, lon: -77.4 })).toBeGreaterThan(10500);
   });
 });
+
+import { recommendCap } from '../electron/services/fortniteConfig';
+describe('Lock safety (bug: 180 FPS lock on a 320 Hz monitor)', () => {
+  it('ignores loading-screen / lobby seconds when recommending a lock', () => {
+    const fps = [...Array(70).fill(0).map((_, i) => 400 + (i % 30)), ...Array(30).fill(60)];
+    expect(recommendCap(fps)!.cap).toBeGreaterThanOrEqual(400);
+  });
+  it('never auto-locks below the monitor refresh rate', () => {
+    const c = chooseLock({ sustainedFps: 200, recommendedCap: 180 }, 500, 320)!;
+    expect(c.cap).toBe(0);
+    expect(c.reason).toMatch(/320 Hz/);
+    expect(chooseLock({ sustainedFps: 410, recommendedCap: 400 }, 500, 320)!.cap).toBe(400);
+  });
+});
