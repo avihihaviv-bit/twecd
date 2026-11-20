@@ -59,6 +59,12 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
 
   const done = boost.steps.filter((s) => s.status !== 'pending' && s.status !== 'running').length;
   const pct = boost.phase === 'scanning' ? (done / 10) * 100 : boost.phase === 'idle' ? 0 : 100;
+  const STAGE_HELP = ['Scan the PC', 'Read the report below', 'Apply the recommended optimizations', 'Measure before/after in Fortnite'];
+  const goStage = (i: number) => {
+    if (i === 0) { if (boost.phase === 'idle' || boost.phase === 'done' || boost.phase === 'review') void start('scan'); return; }
+    if (i === 3) { onBenchmark(); return; }
+    document.getElementById(i === 1 ? 'tw-report' : 'tw-recs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const stage = boost.phase === 'idle' ? -1 : boost.phase === 'scanning' ? 0 : boost.phase === 'review' ? 1 : boost.phase === 'applying' ? 2 : 3;
 
   const series = useMemo(() => ({
@@ -113,9 +119,13 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
             <Action n={3} icon={Play} label="START FORTNITE" sub="Via Epic Games Launcher" onClick={launch} disabled={!info?.isWindows} />
             <div className="mt-1 flex items-center justify-center gap-1.5 text-[11px] font-semibold tracking-[0.14em]">
               {['SCAN', 'ANALYZE', 'APPLY', 'BENCHMARK'].map((s, i) => (
-                <span key={s} className="flex items-center gap-1.5"><span className={stage >= i ? 'text-neon' : 'text-[#5d4f7a]'}>{s}</span>{i < 3 && <ArrowRight size={11} className="text-[#4a3b66]" />}</span>
+                <span key={s} className="flex items-center gap-1.5">
+                  <button type="button" onClick={() => goStage(i)} title={STAGE_HELP[i]} className={`rounded px-1 transition-colors hover:bg-white/5 ${stage >= i ? 'text-neon' : stage + 1 === i ? 'animate-pulse text-purple' : 'text-[#5d4f7a]'}`}>{stage >= i ? '✓ ' : ''}{s}</button>
+                  {i < 3 && <ArrowRight size={11} className="text-[#4a3b66]" />}
+                </span>
               ))}
             </div>
+            <div className="text-center text-xs text-muted">{stage < 0 ? 'Step 1: click MAX FPS or SCAN PC.' : stage === 0 ? 'Scanning...' : stage === 1 ? 'Next: scroll down to "Recommended optimizations" and click APPLY.' : stage === 2 ? 'Applying...' : 'Next: run a Benchmark in the same Fortnite scenario to measure the difference.'}</div>
             {launchMsg && <div className="text-center text-sm text-neon2">{launchMsg}</div>}
             {boost.error && <div className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">{boost.error}</div>}
           </div>
@@ -160,10 +170,10 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
         </Card>
       )}
       {boost.result && boost.phase !== 'scanning' && (
-        <Card title={`Optimization report · ${boost.result.findings.length} findings`}><FindingGrid items={[...boost.result.findings].sort((a, b) => rank(b) - rank(a))} /></Card>
+        <Card id="tw-report" title={`Optimization report · ${boost.result.findings.length} findings`}><FindingGrid items={[...boost.result.findings].sort((a, b) => rank(b) - rank(a))} /></Card>
       )}
       {boost.result && (boost.phase === 'review' || boost.phase === 'applying') && (
-        <Card title="Recommended optimizations" right={<span className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={14} className="text-neon" /> Safe, explained, reversible unless marked</span>}>
+        <Card id="tw-recs" title="Recommended optimizations" right={<span className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={14} className="text-neon" /> Safe, explained, reversible unless marked</span>}>
           {actionable.length === 0 && <div className="mb-4 text-sm text-muted">{info?.isWindows ? 'No automatic changes needed: every setting TWECD can change is already optimal.' : 'Windows settings can only be checked and changed on Windows; nothing was changed.'}</div>}
           <div className="grid grid-cols-2 gap-3">
             {actionable.map((r) => <RecRow key={r.id} r={r} checked={selected.has(r.id)} onToggle={() => setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} pids={pids} setPids={setPids} startupSel={startupSel} setStartupSel={setStartupSel} />)}

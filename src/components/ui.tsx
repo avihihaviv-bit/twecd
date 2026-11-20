@@ -14,9 +14,9 @@ export function PageHeader({ title, subtitle, right }: { title: string; subtitle
   );
 }
 
-export function Card({ title, right, children, className = '' }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({ title, right, children, className = '', id }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`card p-5 ${className}`}>
+    <section id={id} className={`card scroll-mt-4 p-5 ${className}`}>
       {(title || right) && <div className="mb-4 flex items-center justify-between gap-3">{title && <h2 className="card-title">{title}</h2>}{right}</div>}
       {children}
     </section>
