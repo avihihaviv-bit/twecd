@@ -114,3 +114,12 @@ describe('BIOS guide detection bugs (seen on the real PC)', () => {
     expect(parseProbe(JSON.stringify({ board: 'Gigabyte B760', boardRev: 'x.x' }))!.boardRevision).toBeNull();
   });
 });
+
+import { parseVbs } from '../electron/services/windows';
+describe('Memory Integrity detection (read-only)', () => {
+  it('reads VBS and HVCI state', () => {
+    expect(parseVbs(JSON.stringify({ vbs: 2, running: [2], hvciReg: 1 }))).toEqual({ memoryIntegrity: true, vbsRunning: true });
+    expect(parseVbs(JSON.stringify({ vbs: 0, running: [], hvciReg: 0 }))).toEqual({ memoryIntegrity: false, vbsRunning: false });
+    expect(parseVbs('')).toEqual({ memoryIntegrity: null, vbsRunning: null });
+  });
+});

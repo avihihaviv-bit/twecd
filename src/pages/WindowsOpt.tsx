@@ -88,6 +88,7 @@ export default function WindowsOpt({ onBenchmark }: { onBenchmark: () => void })
               </Card>
             );
           })}
+          <SecurityTradeoff />
           <Card title="Checked, but intentionally not changed">
             <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
               {[
@@ -111,4 +112,27 @@ function StateIcon({ s }: { s: OptStatus['state'] }) {
   if (s === 'not-optimal') return <CircleAlert size={22} className="text-purple" />;
   if (s === 'unknown') return <HelpCircle size={22} className="text-muted" />;
   return <MinusCircle size={22} className="text-muted" />;
+}
+
+/** Memory Integrity / VBS: a real but security-relevant performance cost. Shown, never changed by TWECD. */
+function SecurityTradeoff() {
+  const [v, setV] = useState<{ memoryIntegrity: boolean | null; vbsRunning: boolean | null } | null>(null);
+  useEffect(() => { api().vbs().then(setV).catch(() => setV({ memoryIntegrity: null, vbsRunning: null })); }, []);
+  const on = v?.memoryIntegrity === true || v?.vbsRunning === true;
+  return (
+    <Card title="Security trade-off: your decision">
+      <div className="grid grid-cols-[1fr_auto] items-start gap-6">
+        <div className="text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-white">Memory Integrity (Core isolation) / Virtualization-based security</span>
+            {v === null ? <Badge tone="muted">CHECKING</Badge> : on ? <Badge tone="warn">ON</Badge> : v.memoryIntegrity === false && v.vbsRunning === false ? <Badge tone="good">OFF</Badge> : <Badge tone="muted">UNKNOWN</Badge>}
+            <Badge tone="warn">RISK: MEDIUM (SECURITY)</Badge>
+          </div>
+          <p className="mt-2 text-[#cfc3e3]">Microsoft states that Memory Integrity and the Virtual Machine Platform can reduce gaming performance, and suggests gamers may turn them off while playing and back on afterwards. In CPU-bound games the measured difference is usually a few percent, not a doubling.</p>
+          <p className="mt-1 text-muted">It protects Windows against malicious drivers. TWECD will not change it for you. If you choose to: Windows Security &gt; Device security &gt; Core isolation &gt; Memory integrity Off, restart, benchmark. If the gain is not worth it to you, turn it back on.</p>
+        </div>
+        <button className="btn-ghost" onClick={() => api().openExternal('windowsdefender://coreisolation')}>Open Core isolation</button>
+      </div>
+    </Card>
+  );
 }

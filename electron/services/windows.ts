@@ -325,3 +325,21 @@ export async function networkAdapters(): Promise<AdapterInfo[]> {
   const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], 20000);
   return parseAdapters(r.stdout.trim());
 }
+
+// ---------- Security trade-offs (read-only; the user decides and toggles them in Windows Security) ----------
+export interface VbsState { memoryIntegrity: boolean | null; vbsRunning: boolean | null }
+export function parseVbs(json: string): VbsState {
+  try {
+    const o = JSON.parse(json);
+    const vbs = typeof o.vbs === 'number' ? o.vbs === 2 : null;
+    const hvci = Array.isArray(o.running) ? o.running.includes(2) : typeof o.running === 'number' ? o.running === 2 : null;
+    const reg = typeof o.hvciReg === 'number' ? o.hvciReg === 1 : null;
+    return { memoryIntegrity: hvci ?? reg, vbsRunning: vbs };
+  } catch { return { memoryIntegrity: null, vbsRunning: null }; }
+}
+export async function vbsState(): Promise<VbsState> {
+  if (!isWin) return { memoryIntegrity: null, vbsRunning: null };
+  const ps = `$ErrorActionPreference='SilentlyContinue'; $d = Get-CimInstance -Namespace root\\Microsoft\\Windows\\DeviceGuard -ClassName Win32_DeviceGuard; $r = (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\\Scenarios\\HypervisorEnforcedCodeIntegrity').Enabled; [pscustomobject]@{ vbs = $d.VirtualizationBasedSecurityStatus; running = @($d.SecurityServicesRunning); hvciReg = $r } | ConvertTo-Json -Compress`;
+  const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], 15000);
+  return parseVbs(r.stdout.trim());
+}

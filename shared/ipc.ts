@@ -36,6 +36,7 @@ export const IPC = {
   regionProgress: 'net:regions-progress',
   pingKillers: 'net:ping-killers',
   optStatus: 'boost:status',
+  vbs: 'sys:vbs',
   tuneGet: 'fn:tune-get',
   tuneApply: 'fn:tune-apply',
   adapters: 'net:adapters',

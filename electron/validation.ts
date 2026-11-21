@@ -28,6 +28,7 @@ export const VisibleSchema = z.boolean();
 export const CapSchema = z.number().int().refine((v) => v === 0 || (v >= 30 && v <= 1000), 'Cap must be 0 (unlimited) or 30-1000');
 
 const ALLOWED_EXTERNAL = [
+  /^windowsdefender:\/\/coreisolation\/?$/,
   /^ms-settings:(gaming-gamemode|gaming-gamedvr|startupapps|powersleep|display-advancedgraphics|network-status|windowsupdate)$/,
   /^https:\/\/(www\.)?nvidia\.com\//,
   /^https:\/\/github\.com\/GameTechDev\/PresentMon/,

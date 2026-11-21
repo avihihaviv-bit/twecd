@@ -43,6 +43,7 @@ export interface TwecdApi {
   onRegionProgress(cb: (p: { done: number; total: number }) => void): Off;
   pingKillers(): Promise<PingKiller[]>;
   optStatus(): Promise<OptStatus[]>;
+  vbs(): Promise<{ memoryIntegrity: boolean | null; vbsRunning: boolean | null }>;
   tuneGet(): Promise<{ kind: string | null; title: string | null; evidence: string[]; step: TuneStepInfo | null; samples: number }>;
   tuneApply(): Promise<{ ok: boolean; message: string; step: TuneStepInfo | null }>;
   adapters(): Promise<AdapterInfo[]>;
