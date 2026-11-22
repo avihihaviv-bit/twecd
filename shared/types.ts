@@ -139,7 +139,10 @@ export type OptimizationId =
   | 'startup-apps-off'
   | 'visual-effects-performance'
   | 'fortnite-power-throttling-off'
-  | 'delivery-optimization-p2p-off';
+  | 'delivery-optimization-p2p-off'
+  | 'usb-selective-suspend-off'
+  | 'pcie-aspm-off'
+  | 'pointer-precision-off';
 
 export interface Recommendation {
   id: string;

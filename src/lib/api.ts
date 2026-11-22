@@ -44,6 +44,7 @@ export interface TwecdApi {
   pingKillers(): Promise<PingKiller[]>;
   optStatus(): Promise<OptStatus[]>;
   vbs(): Promise<{ memoryIntegrity: boolean | null; vbsRunning: boolean | null }>;
+  overlays(): Promise<{ name: string; advice: string }[]>;
   tuneGet(): Promise<{ kind: string | null; title: string | null; evidence: string[]; step: TuneStepInfo | null; samples: number }>;
   tuneApply(): Promise<{ ok: boolean; message: string; step: TuneStepInfo | null }>;
   adapters(): Promise<AdapterInfo[]>;

@@ -7,6 +7,7 @@ import {
   createRestorePoint, createUltimatePlan, deletePowerScheme, dwordOf, dxFlagOn, fortniteExePath, isEssentialStartup, listPowerSchemes,
   listProcesses, listUserStartup, regDeleteValue, regQuery, regRead, regRemove, regSetDword, regSetString, regWrite, sameValue, scanTemp,
   setDxFlag, setPowerScheme, type RegSnapshot, type RegType, DO_KEY, getHags, powerThrottlingExempt, setPowerThrottling,
+  PC_ASPM, PC_USB, activeSchemeGuid, getPowerIndex, setPowerIndex,
 } from './windows';
 import { applyFortniteMaxFps, fortniteBackupPath, readFortniteConfig, restoreFortnite } from './fortniteFiles';
 import { friendlyName, isClosable } from './processCatalog';
@@ -24,6 +25,7 @@ export interface Backup {
   dxGlobalSettings?: string | null;
   reg?: Partial<Record<OptimizationId, RegBackupEntry[]>>; // generic registry tweaks
   powerThrottlingExe?: string;
+  powercfg?: Partial<Record<OptimizationId, { scheme: string; sub: string; setting: string; orig: number }>>;
 }
 
 export const TITLES: Record<OptimizationId, string> = {
@@ -41,10 +43,13 @@ export const TITLES: Record<OptimizationId, string> = {
   'visual-effects-performance': 'Set Windows visual effects to Best performance',
   'fortnite-power-throttling-off': 'Exempt Fortnite from Windows power throttling',
   'delivery-optimization-p2p-off': 'Stop Windows Update uploading to other PCs',
+  'usb-selective-suspend-off': 'Turn off USB selective suspend (mouse/keyboard)',
+  'pcie-aspm-off': 'Turn off PCIe link power saving',
+  'pointer-precision-off': 'Turn off Enhance Pointer Precision (mouse acceleration)',
 };
 
 /** Changes outside TWECD's own files: a System Restore point is attempted first (when running as administrator). */
-const SYSTEM_CHANGES: OptimizationId[] = ['fortnite-power-throttling-off', 'delivery-optimization-p2p-off', 'hags-on', 'power-plan-high', 'game-capture-off', 'startup-apps-off', 'visual-effects-performance', 'fortnite-gpu-preference', 'game-mode-on', 'background-recording-off', 'windowed-optimizations-on'];
+const SYSTEM_CHANGES: OptimizationId[] = ['usb-selective-suspend-off', 'pcie-aspm-off', 'pointer-precision-off', 'fortnite-power-throttling-off', 'delivery-optimization-p2p-off', 'hags-on', 'power-plan-high', 'game-capture-off', 'startup-apps-off', 'visual-effects-performance', 'fortnite-gpu-preference', 'game-mode-on', 'background-recording-off', 'windowed-optimizations-on'];
 
 type Val = { key: string; name: string; type: RegType; data: string };
 const HAGS_KEY = 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers';
@@ -77,6 +82,7 @@ export class Optimizer {
     if (b.autoGameModeEnabled !== undefined) out.push({ id: 'game-mode-on', title: 'Game Mode', detail: `Original: ${b.autoGameModeEnabled ?? 'Windows default'}` });
     if (b.historicalCaptureEnabled !== undefined) out.push({ id: 'background-recording-off', title: 'Background recording', detail: `Original: ${b.historicalCaptureEnabled ?? 'Windows default'}` });
     if (b.powerSchemeGuid) out.push({ id: 'power-plan-high', title: 'Power plan', detail: 'Switch back to your previous plan' });
+    for (const id of Object.keys(b.powercfg ?? {}) as OptimizationId[]) out.push({ id, title: TITLES[id], detail: 'Original power-plan value saved' });
     if (b.powerThrottlingExe) out.push({ id: 'fortnite-power-throttling-off', title: 'Fortnite power throttling exemption', detail: b.powerThrottlingExe });
     if (b.dxGlobalSettings !== undefined) out.push({ id: 'windowed-optimizations-on', title: 'Windowed game optimizations', detail: `Original: ${b.dxGlobalSettings ?? 'not set'}` });
     for (const [id, entries] of Object.entries(b.reg ?? {}) as [OptimizationId, RegBackupEntry[]][]) {
@@ -122,6 +128,11 @@ export class Optimizer {
       case 'delivery-optimization-p2p-off':
         if (!(await this.isAdmin())) return 'Needs administrator rights (machine-wide Windows Update setting).';
         return [{ key: DO_KEY, name: 'DownloadMode', type: 'REG_DWORD', data: '0' }];
+      case 'pointer-precision-off': return [
+        { key: 'HKCU\\Control Panel\\Mouse', name: 'MouseSpeed', type: 'REG_SZ', data: '0' },
+        { key: 'HKCU\\Control Panel\\Mouse', name: 'MouseThreshold1', type: 'REG_SZ', data: '0' },
+        { key: 'HKCU\\Control Panel\\Mouse', name: 'MouseThreshold2', type: 'REG_SZ', data: '0' },
+      ];
       case 'visual-effects-performance': return [{ key: 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects', name: 'VisualFXSetting', type: 'REG_DWORD', data: '2' }];
       case 'startup-apps-off': {
         const names = req.startupNames ?? [];
@@ -151,6 +162,7 @@ export class Optimizer {
       'fortnite-gpu-preference': 'Windows will always start Fortnite on the high-performance GPU (Settings > System > Display > Graphics).',
       'hags-on': 'Enabled. Takes effect after you restart the PC. Benchmark before and after to check it on your system.',
       'visual-effects-performance': 'Set to Best performance. Takes effect after signing out. No effect on FPS inside fullscreen games; it only makes Windows itself lighter.',
+      'pointer-precision-off': 'Mouse acceleration is off for Windows (takes effect after signing out). Fortnite reads raw mouse input, so in-game aim is unchanged; desktop movement becomes 1:1.',
       'delivery-optimization-p2p-off': 'Windows Update still downloads updates normally, but no longer uploads them to other PCs over your connection.',
       'startup-apps-off': `Disabled at startup: ${vals.map((v) => v.name).join(', ')}. They still work when you open them yourself.`,
     };
@@ -164,7 +176,21 @@ export class Optimizer {
 
   private async applyOne(id: OptimizationId, b: Backup, req: ApplyRequest): Promise<Omit<ApplyItemResult, 'id' | 'title'>> {
     if (!isWin && id !== 'close-background-apps') return { status: 'unavailable', message: 'Only available on Windows.' };
-    if (['game-capture-off', 'fortnite-gpu-preference', 'hags-on', 'visual-effects-performance', 'startup-apps-off', 'delivery-optimization-p2p-off'].includes(id)) return this.applyTweak(id, b, req);
+    if (['game-capture-off', 'fortnite-gpu-preference', 'hags-on', 'visual-effects-performance', 'startup-apps-off', 'delivery-optimization-p2p-off', 'pointer-precision-off'].includes(id)) return this.applyTweak(id, b, req);
+    if (id === 'usb-selective-suspend-off' || id === 'pcie-aspm-off') {
+      const def = id === 'usb-selective-suspend-off' ? PC_USB : PC_ASPM;
+      const scheme = await activeSchemeGuid();
+      if (!scheme) return { status: 'unavailable', message: 'Could not read the active power plan.' };
+      const cur = await getPowerIndex(scheme, def);
+      if (cur === null) return { status: 'unavailable', message: 'This power plan does not expose the setting.' };
+      if (cur === 0) return { status: 'skipped', message: 'Already off in the active power plan.', verified: true };
+      (b.powercfg ??= {});
+      if (!b.powercfg[id]) b.powercfg[id] = { scheme, ...def, orig: cur };
+      await setPowerIndex(scheme, def, 0);
+      const verified = (await getPowerIndex(scheme, def)) === 0;
+      const label = id === 'usb-selective-suspend-off' ? 'USB devices are never put to sleep, so the mouse and keyboard never need to wake up.' : 'The PCIe link to the GPU and NVMe never drops into a power-saving state.';
+      return { status: verified ? 'success' : 'failed', verified, before: cur === 1 ? 'On' : `Level ${cur}`, after: verified ? 'Off' : 'unchanged', message: verified ? label : 'powercfg did not accept the change.' };
+    }
     if (id === 'fortnite-power-throttling-off') {
       const exe = fortniteExePath();
       if (!exe) return { status: 'unavailable', message: 'Fortnite\'s install folder was not found in the Epic Games Launcher manifests.' };
@@ -279,6 +305,12 @@ export class Optimizer {
       out.push({ id: 'windowed-optimizations-on', title: 'Windowed game optimizations', status: ok ? 'success' : 'failed', message: ok ? 'Restored the original setting.' : 'Could not restore.' });
       if (ok) delete b.dxGlobalSettings;
     }
+    for (const [id, pc] of Object.entries(b.powercfg ?? {}) as [OptimizationId, { scheme: string; sub: string; setting: string; orig: number }][]) {
+      if (!want(id) || !pc) continue;
+      const ok = await setPowerIndex(pc.scheme, pc, pc.orig);
+      out.push({ id, title: TITLES[id], status: ok ? 'success' : 'failed', message: ok ? 'Restored the original power-plan value.' : 'Could not restore.' });
+      if (ok) delete b.powercfg![id];
+    }
     if (want('fortnite-power-throttling-off') && b.powerThrottlingExe) {
       const ok = await setPowerThrottling(b.powerThrottlingExe, false);
       out.push({ id: 'fortnite-power-throttling-off', title: TITLES['fortnite-power-throttling-off'], status: ok ? 'success' : 'failed', message: ok ? 'Fortnite follows normal Windows power throttling again.' : 'Could not reset (administrator rights needed).' });
@@ -328,6 +360,13 @@ export class Optimizer {
     out.push(S('fortnite-power-throttling-off', 'Windows', !exe ? 'unavailable' : pt === null ? 'unknown' : pt ? 'optimal' : 'not-optimal', !exe ? 'Fortnite not found' : pt === null ? 'Needs administrator to read' : pt ? 'Exempt' : 'Throttling allowed', 'On hybrid Intel CPUs, Windows power throttling can push threads to E-cores at low clocks (e.g. when the game loses focus).', 'low', 'none', true));
     const dom = admin ? dwordOf(await regQuery(DO_KEY, 'DownloadMode')) : undefined;
     out.push(S('delivery-optimization-p2p-off', 'Network', dom === undefined ? 'unknown' : dom === 0 ? 'optimal' : 'not-optimal', dom === undefined ? 'Needs administrator to read' : dom === 0 ? 'Off (downloads only)' : dom === null ? 'Windows default (may share updates)' : `Mode ${dom} (shares updates)`, 'Stops Windows Update from uploading updates to other PCs over your connection, which can cause ping spikes. Updates still install.', 'low', 'none', true));
+    const scheme = await activeSchemeGuid();
+    const usb = scheme ? await getPowerIndex(scheme, PC_USB) : null;
+    out.push(S('usb-selective-suspend-off', 'Windows', usb === null ? 'unknown' : usb === 0 ? 'optimal' : 'not-optimal', usb === null ? 'Not exposed by this plan' : usb === 0 ? 'Off' : 'On (USB devices may sleep)', 'Stops Windows from suspending USB ports, so the mouse/keyboard never have to wake up (avoids rare input hitches).', 'low', 'none'));
+    const aspm = scheme ? await getPowerIndex(scheme, PC_ASPM) : null;
+    out.push(S('pcie-aspm-off', 'Graphics', aspm === null ? 'unknown' : aspm === 0 ? 'optimal' : 'not-optimal', aspm === null ? 'Not exposed by this plan' : aspm === 0 ? 'Off' : aspm === 1 ? 'Moderate power savings' : 'Maximum power savings', 'Keeps the PCIe link to the GPU at full power; avoids wake-up latency. The Ultimate plan already sets this.', 'low', 'none'));
+    const ms = (await regQuery('HKCU\\Control Panel\\Mouse', 'MouseSpeed'))?.data ?? null;
+    out.push(S('pointer-precision-off', 'Windows', ms === null ? 'unknown' : ms === '0' ? 'optimal' : 'not-optimal', ms === null ? 'Unknown' : ms === '0' ? 'Off (1:1 mouse)' : 'On (mouse acceleration)', 'Removes Windows mouse acceleration for consistent desktop/menu aim. Fortnite uses raw input, so in-game aim is not affected.', 'low', 'none'));
     const vfx = dwordOf(await regQuery('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects', 'VisualFXSetting'));
     out.push(S('visual-effects-performance', 'Windows', vfx === 2 ? 'optimal' : 'not-optimal', vfx === 2 ? 'Best performance' : 'Windows default', 'Lighter desktop only; no effect inside fullscreen Fortnite.', 'low', 'none'));
     const st = (await listUserStartup()).filter((e) => e.enabled && !e.essential);

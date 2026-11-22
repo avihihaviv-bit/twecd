@@ -18,7 +18,7 @@ import { plausibility, testRegions } from './services/regions';
 import { findPingKillers } from './services/processCatalog';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
 import { runBenchmark } from './services/benchmark';
-import { isAdmin, listProcesses, listUserStartup, networkAdapters, vbsState } from './services/windows';
+import { isAdmin, listProcesses, listUserStartup, networkAdapters, vbsState, findOverlays } from './services/windows';
 import { readHwinfo } from './services/hwinfo';
 import { runBufferbloat } from './services/bufferbloat';
 import { parseBar1TotalMB, rebarEnabled } from './services/nvidiaParse';
@@ -217,6 +217,7 @@ function registerIpc() {
   handle(IPC.pingKillers, null, async () => findPingKillers(await listProcesses(false)));
   handle(IPC.optStatus, null, () => optimizer.status());
   handle(IPC.vbs, null, () => vbsState());
+  handle(IPC.overlays, null, async () => findOverlays(await listProcesses(false)));
   handle(IPC.tuneGet, null, () => {
     const s = hub.getSession(); const sess = s.current ?? s.last;
     const d = sess?.diagnosis[0] ?? null;

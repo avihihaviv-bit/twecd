@@ -123,3 +123,16 @@ describe('Memory Integrity detection (read-only)', () => {
     expect(parseVbs('')).toEqual({ memoryIntegrity: null, vbsRunning: null });
   });
 });
+
+import { parsePowerIndex, findOverlays } from '../electron/services/windows';
+describe('list review additions', () => {
+  it('reads powercfg AC index', () => {
+    expect(parsePowerIndex('    Current AC Power Setting Index: 0x00000001\r\n    Current DC Power Setting Index: 0x00000001')).toBe(1);
+    expect(parsePowerIndex('    Current AC Power Setting Index: 0x00000000')).toBe(0);
+    expect(parsePowerIndex('nothing')).toBeNull();
+  });
+  it('detects overlays/recorders once each', () => {
+    const o = findOverlays([{ name: 'Medal.exe' }, { name: 'Discord.exe' }, { name: 'Discord.exe' }, { name: 'notepad.exe' }]);
+    expect(o.map((x) => x.name)).toEqual(['Medal.exe', 'Discord.exe']);
+  });
+});

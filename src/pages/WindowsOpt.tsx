@@ -88,6 +88,7 @@ export default function WindowsOpt({ onBenchmark }: { onBenchmark: () => void })
               </Card>
             );
           })}
+          <OverlaysCard />
           <SecurityTradeoff />
           <Card title="Checked, but intentionally not changed">
             <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
@@ -132,6 +133,25 @@ function SecurityTradeoff() {
           <p className="mt-1 text-muted">It protects Windows against malicious drivers. TWECD will not change it for you. If you choose to: Windows Security &gt; Device security &gt; Core isolation &gt; Memory integrity Off, restart, benchmark. If the gain is not worth it to you, turn it back on.</p>
         </div>
         <button className="btn-ghost" onClick={() => api().openExternal('windowsdefender://coreisolation')}>Open Core isolation</button>
+      </div>
+    </Card>
+  );
+}
+
+/** Overlays and recorders running right now, plus input-device advice for a CPU-bound PC. */
+function OverlaysCard() {
+  const [list, setList] = useState<{ name: string; advice: string }[] | null>(null);
+  const load = () => api().overlays().then(setList).catch(() => setList([]));
+  useEffect(() => { load(); }, []);
+  return (
+    <Card title="Overlays, recorders & input devices" right={<button className="btn-ghost !py-1.5 text-sm" onClick={load}>Re-check</button>}>
+      <div className="space-y-2 text-sm">
+        {list === null ? <div className="text-muted">Checking running apps...</div> : list.length === 0 ? <div className="text-neon2">No FPS-costing overlays or background recorders are running.</div> : list.map((o) => (
+          <div key={o.name} className="flex items-start gap-3 rounded-lg border border-line bg-panel2/60 p-3"><Badge tone="warn">{o.name}</Badge><span className="text-[#cfc3e3]">{o.advice}</span></div>
+        ))}
+        <div className="mt-3 rounded-lg border border-purple/30 bg-purple/[0.05] p-3 text-[#d9c6f5]">
+          <b className="text-white">Mouse polling rate:</b> your PC is CPU-bound in Fortnite, and every mouse report costs CPU time. 4000-8000 Hz can lower FPS and 1% lows; <b className="text-white">1000-2000 Hz</b> is the right range. Change it in your mouse's software and compare with a Benchmark.
+        </div>
       </div>
     </Card>
   );

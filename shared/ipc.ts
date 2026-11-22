@@ -37,6 +37,7 @@ export const IPC = {
   pingKillers: 'net:ping-killers',
   optStatus: 'boost:status',
   vbs: 'sys:vbs',
+  overlays: 'sys:overlays',
   tuneGet: 'fn:tune-get',
   tuneApply: 'fn:tune-apply',
   adapters: 'net:adapters',

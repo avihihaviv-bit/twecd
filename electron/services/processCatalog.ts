@@ -26,6 +26,7 @@ const CLOSABLE: Record<string, string> = {
   'code.exe': 'Visual Studio Code', 'winword.exe': 'Word', 'excel.exe': 'Excel', 'powerpnt.exe': 'PowerPoint', 'obs64.exe': 'OBS Studio',
   'qbittorrent.exe': 'qBittorrent', 'utorrent.exe': 'uTorrent', 'bittorrent.exe': 'BitTorrent', 'transmission-qt.exe': 'Transmission',
   'idman.exe': 'Internet Download Manager', 'megasync.exe': 'MEGAsync', 'icloudservices.exe': 'iCloud',
+  'medal.exe': 'Medal', 'medalencoder.exe': 'Medal encoder',
   'icue.exe': 'Corsair iCUE', 'razer synapse 3.exe': 'Razer Synapse', 'lghub.exe': 'Logitech G HUB', 'wallpaper64.exe': 'Wallpaper Engine',
 };
 

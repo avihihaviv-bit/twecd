@@ -343,3 +343,45 @@ export async function vbsState(): Promise<VbsState> {
   const r = await run('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], 15000);
   return parseVbs(r.stdout.trim());
 }
+
+// ---------- Power-plan sub-settings (applied to the active plan, reversible) ----------
+export const PC_USB = { sub: '2a737441-1930-4402-8d77-b2bebba308a3', setting: '48e6b7a6-50f5-4782-a5d4-53bb8f07e226' }; // USB selective suspend
+export const PC_ASPM = { sub: '501a4d13-42af-4429-9fd1-a8218c268e20', setting: 'ee12f906-d277-404b-b6da-e5fa1a576df5' }; // PCIe Link State Power Management
+
+export function parsePowerIndex(stdout: string): number | null {
+  const m = stdout.match(/Current AC Power Setting Index:\s*0x([0-9a-f]+)/i) ?? stdout.match(/AC[^:\r\n]*:\s*0x([0-9a-f]+)/i);
+  return m ? parseInt(m[1], 16) : null;
+}
+export async function activeSchemeGuid(): Promise<string | null> {
+  if (!isWin) return null;
+  const r = await run('powercfg', ['/getactivescheme']);
+  return r.stdout.match(/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)?.[1].toLowerCase() ?? null;
+}
+export async function getPowerIndex(scheme: string, s: { sub: string; setting: string }): Promise<number | null> {
+  if (!isWin) return null;
+  return parsePowerIndex((await run('powercfg', ['/query', scheme, s.sub, s.setting])).stdout);
+}
+export async function setPowerIndex(scheme: string, s: { sub: string; setting: string }, v: number): Promise<boolean> {
+  if (!isWin || !/^[0-9a-f-]{36}$/i.test(scheme)) return false;
+  const ok = (await run('powercfg', ['/setacvalueindex', scheme, s.sub, s.setting, String(v)])).code === 0;
+  await run('powercfg', ['/setactive', scheme]);
+  return ok;
+}
+
+// ---------- Overlays and background recorders that cost FPS ----------
+const OVERLAYS: Record<string, string> = {
+  'medal.exe': 'Medal: background clip recording encodes video while you play',
+  'medalencoder.exe': 'Medal encoder: records gameplay in the background',
+  'nvidia overlay.exe': 'NVIDIA Overlay: turn off Instant Replay in the NVIDIA App if you don\'t use it',
+  'discord.exe': 'Discord: turn off its in-game overlay (Settings > Game Overlay) and Hardware Acceleration if FPS dips',
+  'wallpaper64.exe': 'Wallpaper Engine: uses the GPU; set it to pause when a game is fullscreen',
+  'lively.exe': 'Lively Wallpaper: uses the GPU; set it to pause in fullscreen',
+  'obs64.exe': 'OBS: replay buffer/recording encodes video continuously',
+  'xboxgamebar.exe': 'Xbox Game Bar is open in the background',
+  'gamebar.exe': 'Xbox Game Bar is open in the background',
+};
+export function findOverlays(procs: { name: string }[]): { name: string; advice: string }[] {
+  const seen = new Set<string>(); const out: { name: string; advice: string }[] = [];
+  for (const p of procs) { const k = p.name.toLowerCase(); if (OVERLAYS[k] && !seen.has(k)) { seen.add(k); out.push({ name: p.name, advice: OVERLAYS[k] }); } }
+  return out;
+}
