@@ -8,6 +8,7 @@ import { Badge, Card, FrameTimeChart, LiveChart } from '../components/ui';
 import { LogoMark } from '../components/Logo';
 import { FindingGrid } from '../components/Report';
 import { AutoModeCard } from '../components/AutoModeCard';
+import { LockBanner } from '../components/LockBanner';
 
 const STEP_LABELS: [ScanStep['id'], string][] = [
   ['cpu', 'Scan CPU'], ['gpu', 'Scan GPU & display'], ['vram', 'Scan VRAM'], ['ram', 'Scan RAM'], ['processes', 'Scan background apps'],
@@ -132,6 +133,7 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
         </div>
       </section>
 
+      <LockBanner />
       <AutoModeCard />
 
       {/* MIDDLE: performance cards */}

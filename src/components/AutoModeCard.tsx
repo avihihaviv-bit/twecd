@@ -19,7 +19,7 @@ export function AutoModeCard({ compact }: { compact?: boolean }) {
 
   const toggle = async () => {
     if (!s) return;
-    if (!s.autoMode && !confirm('Turn on AUTO MODE?\n\nTWECD will automatically, at startup and after every match:\n- Keep Game Mode on, the high-performance power plan, Game Bar capture and background recording off, windowed-game optimizations on, and Fortnite on the NVIDIA GPU\n- Keep Fortnite on your chosen profile\n- Set the Stable FPS Lock from your last match: your target (500) only if your PC held it, otherwise the highest FPS it really holds\n\nIt never closes apps, deletes files, or touches security settings. Every change is logged and can be undone in Settings > Restore.')) return;
+    if (!s.autoMode && !confirm('Turn on AUTO MODE?\n\nTWECD will automatically, at startup and after every match:\n- Keep Game Mode on, the high-performance power plan, Game Bar capture and background recording off, windowed-game optimizations on, and Fortnite on the NVIDIA GPU\n- Keep Fortnite on your chosen profile\n- Optional (off by default): cap FPS for smoother frame times. A cap limits maximum FPS.\n\nIt never closes apps, deletes files, or touches security settings. Every change is logged and can be undone in Settings > Restore.')) return;
     setBusy(true); await patch({ autoMode: !s.autoMode }); setBusy(false);
   };
 
@@ -31,14 +31,14 @@ export function AutoModeCard({ compact }: { compact?: boolean }) {
         <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${on ? 'bg-purple text-white shadow-purple' : 'bg-purple/15 text-purple'}`}><Bot size={24} /></div>
         <div className="min-w-[260px] flex-1">
           <div className="flex items-center gap-2"><span className="title-glow font-display text-lg font-extrabold tracking-[0.14em]">AUTO MODE</span>{on ? <Badge tone="good">ON</Badge> : <Badge tone="muted">OFF</Badge>}</div>
-          <div className="text-sm text-[#c9b8e6]">Keeps Windows and Fortnite on the best settings automatically, and locks FPS at {s?.autoLockTarget ?? 500} when your PC can hold it.</div>
+          <div className="text-sm text-[#c9b8e6]">Keeps Windows and Fortnite on the best settings automatically.{s?.autoLock ? ` Also caps FPS at ${s.autoLockTarget} when your PC can hold it (a cap limits max FPS).` : ' FPS stays unlimited.'}</div>
         </div>
         {!compact && s && (
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2"><span className="label">Profile</span>
               <select id="auto-profile" value={s.autoProfile} onChange={(e) => patch({ autoProfile: e.target.value as FortniteProfileId })} className="rounded-lg border border-purple/30 bg-black/50 px-2 py-1.5 text-white">{PROFILES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             </label>
-            <label className="flex items-center gap-2"><input id="auto-lock" type="checkbox" className="accent-[#B44CFF]" checked={s.autoLock} onChange={(e) => patch({ autoLock: e.target.checked })} /><span>Auto FPS lock, target</span>
+            <label className="flex items-center gap-2"><input id="auto-lock" type="checkbox" className="accent-[#B44CFF]" checked={s.autoLock} onChange={(e) => patch({ autoLock: e.target.checked })} /><span title="A lock is a ceiling: FPS can never go above it. It makes frame times flatter but lowers peak FPS.">Cap FPS for smoothness (limits max FPS) at</span>
               <select id="auto-lock-target" value={s.autoLockTarget} onChange={(e) => patch({ autoLockTarget: +e.target.value })} className="rounded-lg border border-purple/30 bg-black/50 px-2 py-1.5 text-white">{[240, 320, 360, 400, 450, 500, 600].map((v) => <option key={v} value={v}>{v} FPS</option>)}</select>
             </label>
           </div>

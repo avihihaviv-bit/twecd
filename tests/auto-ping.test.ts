@@ -79,3 +79,18 @@ describe('Lock safety (bug: 180 FPS lock on a 320 Hz monitor)', () => {
     expect(chooseLock({ sustainedFps: 410, recommendedCap: 400 }, 500, 320)!.cap).toBe(400);
   });
 });
+
+import { decideMode } from '../electron/services/monitor';
+describe('Game-time light mode (regression: TWECD costing FPS while playing)', () => {
+  const base = { visible: true, focused: true, fortniteRunning: false, holding: false, trackWhileHidden: true };
+  it('full monitoring only when the user is looking at TWECD', () => expect(decideMode(base)).toBe('full'));
+  it('light mode while Fortnite runs and TWECD is not focused, even if not minimized', () => {
+    expect(decideMode({ ...base, fortniteRunning: true, focused: false })).toBe('game-light');
+    expect(decideMode({ ...base, fortniteRunning: true, focused: false, visible: false })).toBe('game-light');
+  });
+  it('benchmarks keep recording in light mode instead of full while in game', () => expect(decideMode({ ...base, fortniteRunning: true, focused: false, holding: true })).toBe('game-light'));
+  it('idle when minimized without Fortnite, or when session tracking is off', () => {
+    expect(decideMode({ ...base, visible: false, focused: false })).toBe('idle');
+    expect(decideMode({ ...base, fortniteRunning: true, focused: false, trackWhileHidden: false })).toBe('idle');
+  });
+});

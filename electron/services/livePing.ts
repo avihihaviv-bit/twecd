@@ -11,9 +11,12 @@ export class LivePinger {
   lastMeasured = false;
   constructor(private host: () => string) {}
 
-  start() {
-    if (this.timer) return;
-    this.timer = setInterval(() => void this.probe(), 2000);
+  private intervalMs = 2000;
+  start(intervalMs = 2000) {
+    if (this.timer && this.intervalMs === intervalMs) return;
+    if (this.timer) clearInterval(this.timer);
+    this.intervalMs = intervalMs;
+    this.timer = setInterval(() => void this.probe(), intervalMs);
     void this.probe();
   }
   stop() { if (this.timer) clearInterval(this.timer); this.timer = null; this.lastMeasured = false; }

@@ -24,6 +24,20 @@ export interface HubOptions {
   onFortniteStop?: () => void;
 }
 
+export type HubMode = 'full' | 'game-light' | 'idle';
+
+/**
+ * Decides how much TWECD monitors. While Fortnite runs and TWECD is not the focused window
+ * (the player is in the game, even if TWECD is not minimized or sits on a second monitor),
+ * only the light sampler runs: no WMI loop, no HWiNFO polling, slower ping, no UI updates.
+ * A CPU-bound game must not share the CPU with its own optimizer.
+ */
+export function decideMode(s: { visible: boolean; focused: boolean; fortniteRunning: boolean; holding: boolean; trackWhileHidden: boolean }): HubMode {
+  if (s.fortniteRunning && !s.focused) return s.holding || s.trackWhileHidden ? 'game-light' : 'idle';
+  if (s.visible || s.holding) return 'full';
+  return s.fortniteRunning && s.trackWhileHidden ? 'game-light' : 'idle';
+}
+
 interface Session { startedAt: number; endedAt: number | null; ticks: Tick[]; drops: PerfDropEvent[]; dx12: boolean; bgAppsMB: number | null; lastBgCheck: number }
 
 const MAX_TICKS = 3600;
@@ -42,6 +56,8 @@ export class MonitorHub {
   readonly pm: PresentMonCapture;
   latest: LiveMetrics | null = null;
   private visible = true;
+  private focused = true;
+  mode: HubMode = 'idle';
   private timer: NodeJS.Timeout | null = null;
   private fnTimer: NodeJS.Timeout | null = null;
   private fortnite: FortniteState = { running: false, pid: null, memMB: null, startedAt: null };
@@ -61,6 +77,7 @@ export class MonitorHub {
   start() { this.applyMode(); void this.checkFortnite(); }
 
   setVisible(v: boolean) { if (this.visible === v) return; this.visible = v; this.applyMode(); }
+  setFocused(f: boolean) { if (this.focused === f) return; this.focused = f; this.applyMode(); }
 
   onSample(fn: (m: LiveMetrics) => void) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
 
@@ -70,15 +87,17 @@ export class MonitorHub {
 
   private applyMode() {
     this.stopTimers();
-    const tracking = this.fortnite.running && this.o.trackWhileHidden();
-    if (this.visible || this.listeners.size > 0) {
+    this.mode = decideMode({ visible: this.visible, focused: this.focused, fortniteRunning: this.fortnite.running, holding: this.listeners.size > 0, trackWhileHidden: this.o.trackWhileHidden() });
+    if (this.mode === 'full') {
       const iv = this.o.intervalMs();
-      this.gpu.start(iv); this.agent.start(); this.pinger.start();
+      this.gpu.restartAt(iv); this.pinger.start(2000);
+      // The WMI perf loop is the heaviest sampler: never run it while Fortnite runs.
+      if (this.fortnite.running) this.agent.stop(); else this.agent.start();
       this.timer = setInterval(() => void this.tick(true), iv);
       this.fnTimer = setInterval(() => void this.checkFortnite(), 3000);
-    } else if (tracking) {
-      this.gpu.start(2000); this.agent.stop(); this.pinger.start();
-      this.timer = setInterval(() => void this.tick(false), 2000);
+    } else if (this.mode === 'game-light') {
+      this.gpu.restartAt(2000); this.agent.stop(); this.pinger.start(5000);
+      this.timer = setInterval(() => void this.tick(this.listeners.size > 0), 2000);
       this.fnTimer = setInterval(() => void this.checkFortnite(), 10000);
     } else {
       this.gpu.stop(); this.agent.stop(); this.pinger.stop();
@@ -98,7 +117,7 @@ export class MonitorHub {
     const fps = this.pm.metrics();
     const perf = this.agent.perfPct;
     // HWiNFO sensors (only if the user publishes them); checked every 3 s, backing off when absent.
-    if (isWin && Date.now() - this.hwAt > (this.hwMissing > 3 ? 60000 : 3000)) {
+    if (isWin && this.mode === 'full' && !this.fortnite.running && Date.now() - this.hwAt > (this.hwMissing > 3 ? 60000 : 3000)) {
       this.hwAt = Date.now();
       void readHwinfo().then((s) => { if (s && s.length) { this.hw = pickCpu(s); this.hwMissing = 0; } else { this.hw = null; this.hwMissing++; } }).catch(() => undefined);
     }

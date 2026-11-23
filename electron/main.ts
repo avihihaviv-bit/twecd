@@ -37,7 +37,7 @@ const DEFAULT_SETTINGS: Settings = {
   nvidiaChecklist: [],
   autoMode: false,
   autoProfile: 'high-fps',
-  autoLock: true,
+  autoLock: false,
   autoLockTarget: 500,
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
@@ -128,6 +128,8 @@ function createWindow() {
   win.on('hide', () => hub.setVisible(false));
   win.on('restore', () => hub.setVisible(true));
   win.on('show', () => hub.setVisible(true));
+  win.on('focus', () => hub.setFocused(true));
+  win.on('blur', () => hub.setFocused(false));
   win.on('closed', () => { win = null; });
   if (DEV_URL) void win.loadURL(DEV_URL); else void win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
 }

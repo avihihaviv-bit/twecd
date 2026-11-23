@@ -110,6 +110,10 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
         </Card>
       </div>
 
+      <Card className="mt-6" title="Is TWECD slowing my game down? (2-run check)">
+        <div className="text-sm text-[#cfc3e3]">Same scene, same duration: run <b className="text-white">BEFORE</b> with TWECD on screen, then alt-tab back into Fortnite and run <b className="text-white">AFTER</b>, or minimize TWECD for that run (the benchmark keeps recording). Compare the two above. From v1.9.1 TWECD switches to a light mode automatically while you are in the game: no WMI queries, no HWiNFO polling, ping every 5 s, no screen updates.</div>
+      </Card>
+
       <Winner list={list} />
 
       {B && B.loads?.length > 0 && <Card className="mt-6" title={`Scene-load breakdown · ${name(B)}`}><LoadProfiles loads={B.loads} /></Card>}

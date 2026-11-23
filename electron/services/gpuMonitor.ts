@@ -31,6 +31,7 @@ export class GpuMonitor {
   start(intervalMs: number) {
     this.wanted = true;
     if (this.child) return;
+    this.loopMs = intervalMs;
     try {
       this.child = spawn('nvidia-smi', [`--query-gpu=${this.fields.join(',')}`, '--format=csv,noheader,nounits', `--loop-ms=${intervalMs}`], { windowsHide: true });
     } catch { this.status = 'nvidia-smi not available'; return; }
@@ -42,6 +43,10 @@ export class GpuMonitor {
       if (this.wanted && ++this.failures < 5) setTimeout(() => this.wanted && this.start(intervalMs), 2000);
     });
   }
+
+  /** Restarts the stream at a new interval only if it differs (avoids respawning nvidia-smi every mode change). */
+  private loopMs = 0;
+  restartAt(intervalMs: number) { if (this.child && this.loopMs === intervalMs) return; this.stop(); this.start(intervalMs); }
 
   stop() {
     this.wanted = false;
