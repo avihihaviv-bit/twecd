@@ -17,7 +17,7 @@ const STEP_LABELS: [ScanStep['id'], string][] = [
 ];
 const initialSteps = (): ScanStep[] => STEP_LABELS.map(([id, label]) => ({ id, label, status: 'pending', summary: '' }));
 
-export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => void; onBenchmark: () => void }) {
+export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: () => void; onBenchmark: () => void; onLab: () => void }) {
   const { boost, setBoost, live, info, history } = useApp();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pids, setPids] = useState<Set<number>>(new Set());
@@ -135,6 +135,11 @@ export default function Dashboard({ onLaunch, onBenchmark }: { onLaunch: () => v
 
       <LockBanner />
       <AutoModeCard />
+      <button onClick={onLab} className="flex w-full items-center gap-3 rounded-2xl border border-purple/30 bg-purple/[0.05] px-5 py-3 text-left text-sm transition-colors hover:border-purple/60">
+        <span className="title-glow font-display text-[13px] font-bold tracking-[0.14em]">EXPERIMENTS LAB</span>
+        <span className="flex-1 text-[#d9c6f5]">Want the last few percent? Test P-cores only, priority, Reflex, E-cores and more on YOUR PC. Only measured winners are kept.</span>
+        <ArrowRight size={16} className="text-purple" />
+      </button>
 
       {/* MIDDLE: performance cards */}
       <div className="grid grid-cols-6 gap-4">

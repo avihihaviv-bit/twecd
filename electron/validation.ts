@@ -41,3 +41,7 @@ const ALLOWED_EXTERNAL = [
 export const ExternalSchema = z.string().max(300).refine((u) => ALLOWED_EXTERNAL.some((r) => r.test(u)), 'URL not allowed');
 
 export const ProfileSchema = z.object({ profile: z.enum(['ultra', 'competitive', 'high-fps', 'stability', 'dx12']), cap: z.number().int().min(30).max(1000).optional() });
+
+export const ExpIdSchema = z.enum(['pcore-affinity', 'priority-high', 'view-distance-near', 'reflex-off', 'memory-integrity-off', 'ecores-off', 'ht-off']);
+export const ExpRunSchema = z.object({ id: ExpIdSchema, phase: z.enum(['A', 'B']) });
+export const ExpKeepSchema = z.object({ id: ExpIdSchema, keep: z.boolean() });

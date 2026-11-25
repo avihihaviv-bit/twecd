@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, screen, shell, type IpcMainInvokeE
 import path from 'node:path';
 import { IPC } from '../shared/ipc';
 import type { BenchmarkResult, BiosReport, ChangeLogEntry, Settings, StaticInfo } from '../shared/types';
-import { ApplySchema, CapSchema, ProfileSchema, RestoreSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
+import { ApplySchema, CapSchema, ExpIdSchema, ExpKeepSchema, ExpRunSchema, ProfileSchema, RestoreSchema, BenchSchema, ExternalSchema, NetTestSchema, SettingsSchema, VisibleSchema } from './validation';
 import { JsonStore } from './services/store';
 import { MonitorHub } from './services/monitor';
 import { PresentMonCapture } from './services/presentMon';
@@ -14,6 +14,7 @@ import { readFortniteConfig, applyFortniteCap, applyFortniteProfile, applyTune, 
 import { PROFILES } from './services/fortniteConfig';
 import { Updater } from './services/updater';
 import { AutoMode } from './services/autoMode';
+import { ExperimentsLab, type ExperimentsSaved } from './services/experiments';
 import { plausibility, testRegions } from './services/regions';
 import { findPingKillers } from './services/processCatalog';
 import { closableCatalog, friendlyName, isClosable } from './services/processCatalog';
@@ -39,6 +40,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoProfile: 'high-fps',
   autoLock: false,
   autoLockTarget: 500,
+  expKeep: [],
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
     { label: 'Google DNS', host: '8.8.8.8' },
@@ -64,7 +66,11 @@ const hub = new MonitorHub({
   baseClockMHz: () => staticInfo?.cpu.baseClockMHz ?? null,
   presentMonPath: pmPath,
   emit: (m) => win?.webContents.send(IPC.metrics, m),
-  onFortniteStart: () => void runAutoBoost(),
+  onFortniteStart: (pid) => {
+    void runAutoBoost();
+    // Proven + kept software experiments: re-apply once the game process has settled.
+    if (settings.expKeep.length) setTimeout(() => void lab.applyKept(pid, settings.expKeep), 20000);
+  },
   onFortniteStop: () => void autoMode.run('after match'),
   pingHost: () => settings.livePingHost,
   isDx12: () => isDx12(),
@@ -77,6 +83,13 @@ const optimizer = new Optimizer(
   path.join(ud(), 'fortnite-backup'),
   () => hub.latest?.fortnite.running ?? false,
   async () => staticInfo?.isAdmin ?? (await isAdmin()),
+);
+const lab = new ExperimentsLab(
+  new JsonStore<ExperimentsSaved>(ud(), 'experiments.json', { states: {}, originals: {} }),
+  hub,
+  () => staticInfo?.cpu.topology ?? null,
+  (r) => { const s = benchStore.read(); s.results.unshift(r); s.results = s.results.slice(0, 80); benchStore.write(s); },
+  (a, d) => optimizer.note(a, d),
 );
 autoMode = new AutoMode(optimizer, () => settings, () => hub.latest?.fortnite.running ?? false, () => hub.getSession().last, path.join(ud(), 'fortnite-backup'), (s) => win?.webContents.send(IPC.autoStatus, s), () => staticInfo?.display?.currentHz ?? null);
 
@@ -268,6 +281,25 @@ function registerIpc() {
   });
   handle(IPC.benchList, null, () => benchStore.read().results);
   handle(IPC.benchClear, null, () => { benchStore.write({ results: [] }); return true; });
+
+  // Experiments Lab
+  handle(IPC.expList, null, () => lab.list());
+  handle(IPC.expRun, ExpRunSchema, async (req, e) => {
+    if (!staticInfo) staticInfo = await collectStaticInfo(app.getVersion(), hub.gpu, pmPath());
+    return lab.runPhase(req.id, req.phase, (p) => e.sender.send(IPC.expProgress, p));
+  });
+  handle(IPC.expKeep, ExpKeepSchema, (req) => {
+    const st = lab.setKept(req.id, req.keep);
+    if (!st) return { ok: false, message: 'Only experiments with a measured improvement can be kept.' };
+    const ids = new Set(settings.expKeep); if (req.keep) ids.add(req.id); else ids.delete(req.id);
+    settings = { ...settings, expKeep: [...ids] }; settingsStore.write(settings);
+    return { ok: true, message: req.keep ? 'Kept: applied automatically every time Fortnite starts.' : 'No longer applied automatically.' };
+  });
+  handle(IPC.expReset, ExpIdSchema, (id) => {
+    lab.reset(id);
+    settings = { ...settings, expKeep: settings.expKeep.filter((x) => x !== id) }; settingsStore.write(settings);
+    return true;
+  });
 
   handle(IPC.settingsGet, null, () => settings);
   handle(IPC.settingsSet, SettingsSchema, (patch) => {

@@ -11,6 +11,7 @@ import FortniteOpt from './pages/FortniteOpt';
 import PingOptimizer from './pages/Network';
 import Benchmark from './pages/Benchmark';
 import Backup from './pages/Backup';
+import Experiments from './pages/Experiments';
 import Settings from './pages/Settings';
 
 export default function App() {
@@ -24,7 +25,7 @@ export default function App() {
         <UpdateBanner />
         <main className="flex-1 overflow-y-auto px-8 pb-10">
           <div key={page} className="mx-auto max-w-[2200px]">
-            {page === 'dashboard' && <Dashboard onLaunch={() => setPage('fortnite')} onBenchmark={() => setPage('benchmark')} />}
+            {page === 'dashboard' && <Dashboard onLaunch={() => setPage('fortnite')} onBenchmark={() => setPage('benchmark')} onLab={() => setPage('lab')} />}
             {page === 'diagnostics' && <Diagnostics onAutoBoost={() => setPage('settings')} />}
             {page === 'windows' && <WindowsOpt onBenchmark={() => setPage('benchmark')} />}
             {page === 'nvidia' && <Nvidia />}
@@ -32,6 +33,7 @@ export default function App() {
             {page === 'fortnite' && <FortniteOpt />}
             {page === 'ping' && <PingOptimizer />}
             {page === 'benchmark' && <Benchmark />}
+            {page === 'lab' && <Experiments />}
             {page === 'backup' && <Backup />}
             {page === 'settings' && <Settings />}
           </div>

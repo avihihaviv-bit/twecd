@@ -1,8 +1,8 @@
-import { Activity, Archive, Cpu, Gauge, LayoutDashboard, Microchip, MonitorCog, Network, Settings, Timer } from 'lucide-react';
+import { Activity, Archive, Cpu, FlaskConical, Gauge, LayoutDashboard, Microchip, MonitorCog, Network, Settings, Timer } from 'lucide-react';
 import { Logo } from './Logo';
 import { useApp } from '../lib/store';
 
-export type PageId = 'dashboard' | 'diagnostics' | 'windows' | 'nvidia' | 'bios' | 'fortnite' | 'ping' | 'benchmark' | 'backup' | 'settings';
+export type PageId = 'dashboard' | 'diagnostics' | 'windows' | 'nvidia' | 'bios' | 'fortnite' | 'ping' | 'benchmark' | 'lab' | 'backup' | 'settings';
 const NAV: { id: PageId; label: string; icon: typeof Gauge }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'diagnostics', label: 'System Diagnostics', icon: Cpu },
@@ -12,6 +12,7 @@ const NAV: { id: PageId; label: string; icon: typeof Gauge }[] = [
   { id: 'fortnite', label: 'Fortnite Optimization', icon: Gauge },
   { id: 'ping', label: 'Ping Optimization', icon: Network },
   { id: 'benchmark', label: 'Benchmark', icon: Timer },
+  { id: 'lab', label: 'Experiments Lab', icon: FlaskConical },
   { id: 'backup', label: 'Restore & Backup', icon: Archive },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];

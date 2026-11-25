@@ -2,6 +2,7 @@ import type {
   ApplyItemResult, ApplyRequest, ApplyResult, BenchmarkProgress, BenchmarkRequest, BenchmarkResult, ChangeLogEntry,
   FortniteConfigReport, LiveMetrics, NetContext, NetProgress, NetTestRequest, NetTestResult, ProcessInfo, ScanResult,
   ScanStep, SessionSummary, Settings, StaticInfo, OptimizationId, AutoModeStatus, RegionResult, PingKiller, OptStatus, AdapterInfo, HwSensor, BufferbloatResult, BiosReport, RestorableItem, FortniteProfileId, FortniteProfileInfo, UpdateStatus,
+  ExpDef, ExpId, ExpProgress, ExpState,
 } from '../../shared/types';
 
 type Off = () => void;
@@ -56,6 +57,11 @@ export interface TwecdApi {
   onBenchProgress(cb: (p: BenchmarkProgress) => void): Off;
   benchList(): Promise<BenchmarkResult[]>;
   benchClear(): Promise<boolean>;
+  expList(): Promise<{ defs: ExpDef[]; states: ExpState[] }>;
+  expRun(req: { id: ExpId; phase: 'A' | 'B' }): Promise<ExpState>;
+  onExpProgress(cb: (p: ExpProgress) => void): Off;
+  expKeep(req: { id: ExpId; keep: boolean }): Promise<{ ok: boolean; message: string }>;
+  expReset(id: ExpId): Promise<boolean>;
   settingsGet(): Promise<Settings>;
   settingsSet(s: Partial<Settings>): Promise<Settings>;
   pickPresentMon(): Promise<Settings>;

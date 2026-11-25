@@ -20,7 +20,7 @@ export interface HubOptions {
   pingHost: () => string;
   isDx12: () => boolean;
   emit: (m: LiveMetrics) => void;
-  onFortniteStart?: () => void;
+  onFortniteStart?: (pid: number) => void;
   onFortniteStop?: () => void;
 }
 
@@ -155,7 +155,7 @@ export class MonitorHub {
   }
 
   private onFortniteStart() {
-    try { this.o.onFortniteStart?.(); } catch { /* never block monitoring */ }
+    try { if (this.fortnite.pid !== null) this.o.onFortniteStart?.(this.fortnite.pid); } catch { /* never block monitoring */ }
     this.pm.resetSession();
     this.pm.start(FORTNITE_EXE);
     let dx12 = false; try { dx12 = this.o.isDx12(); } catch { /* unknown */ }

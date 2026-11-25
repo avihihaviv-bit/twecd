@@ -239,6 +239,7 @@ export interface Settings {
   autoLock: boolean;
   autoLockTarget: number;
   autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
+  expKeep: ExpId[]; // proven software experiments re-applied on every Fortnite launch
 }
 
 export type FortniteProfileId = 'ultra' | 'competitive' | 'high-fps' | 'stability' | 'dx12';
@@ -258,3 +259,16 @@ export interface AdapterInfo { name: string; description: string; linkSpeed: str
 export interface HwSensor { sensor: string; label: string; value: string; raw: number | null }
 export interface BiosReport { board: string | null; boardRevision: string | null; biosVersion: string | null; biosDate: string | null; microcode: number | null; ramConfiguredMHz: number | null; ramRatedMHz: number | null; xmp: boolean | null; bar1MB: number | null; rebar: boolean | null; cpuModel: string; pcie: { genCur: number | null; genMax: number | null; widthCur: number | null; widthMax: number | null } | null }
 export type BenchScenario = 'creative-freebuild' | 'build-fight' | '1v1' | 'reload' | 'battle-royale' | 'other';
+
+// ---------- Experiments Lab ----------
+export type ExpId = 'pcore-affinity' | 'priority-high' | 'view-distance-near' | 'reflex-off' | 'memory-integrity-off' | 'ecores-off' | 'ht-off';
+export interface ExpDef {
+  id: ExpId; name: string;
+  kind: 'software' | 'guided'; // software: TWECD applies/reverts it; guided: the user flips it when asked
+  what: string; risk: 'none' | 'low' | 'medium';
+  applyStep: string; revertStep: string; restart: boolean;
+}
+export interface ExpRun { avgFps: number; low1: number; low01: number | null; stdMs: number | null }
+export interface ExpVerdict { status: 'improved' | 'worse' | 'same' | 'insufficient'; avgGainPct: number | null; low1GainPct: number | null; detail: string }
+export interface ExpState { id: ExpId; a: ExpRun[]; b: ExpRun[]; verdict: ExpVerdict | null; applied: boolean; kept: boolean; updatedAt: number | null }
+export interface ExpProgress { id: ExpId; phase: 'A' | 'B'; run: number; runs: number; elapsedSec: number; durationSec: number }
