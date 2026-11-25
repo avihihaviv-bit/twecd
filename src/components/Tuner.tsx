@@ -22,7 +22,7 @@ export function Tuner() {
     <Card title={<span className="flex items-center gap-2"><SlidersHorizontal size={14} className="text-purple" /> FPS Tuner: next step from your measured bottleneck</span>}
       right={t?.kind ? <Badge tone={t.kind === 'gpu' ? 'info' : 'warn'}>{t.kind.toUpperCase()}-BOUND</Badge> : <Badge tone="muted">NO MATCH DATA</Badge>}>
       {!t?.kind ? (
-        <p className="text-sm text-muted">Play one real match (not an empty map) with TWECD running as administrator. The Tuner then knows whether your GPU or CPU limits FPS, and offers the one setting that will actually help: 3D Resolution if GPU-bound, View Distance if CPU-bound.</p>
+        <p className="text-sm text-muted">Turn on "Record every match" in Settings, run TWECD as administrator and play one real match (not an empty map). The Tuner then knows whether your GPU or CPU limits FPS, and offers the one setting that will actually help: 3D Resolution if GPU-bound, View Distance if CPU-bound.</p>
       ) : (
         <div className="grid grid-cols-[1fr_auto] items-center gap-6">
           <div className="text-sm">

@@ -37,10 +37,13 @@ const DEFAULT_SETTINGS: Settings = {
   autoCheckUpdates: true,
   nvidiaChecklist: [],
   autoMode: false,
-  autoProfile: 'high-fps',
+  autoProfile: 'keep',
   autoLock: false,
   autoLockTarget: 500,
   expKeep: [],
+  recordMatches: false,
+  autoProfileChosen: false,
+  settingsVersion: 2,
   netTargets: [
     { label: 'Cloudflare DNS', host: '1.1.1.1' },
     { label: 'Google DNS', host: '8.8.8.8' },
@@ -57,7 +60,21 @@ let busy = { scan: false, net: false, bench: false };
 const ud = () => app.getPath('userData');
 const settingsStore = new JsonStore<Settings>(ud(), 'settings.json', DEFAULT_SETTINGS);
 const benchStore = new JsonStore<{ results: BenchmarkResult[] }>(ud(), 'benchmarks.json', { results: [] });
-let settings = settingsStore.read();
+let settings = migrateSettings(settingsStore.read());
+
+/**
+ * v1.10.1: older versions saved autoLock=true and autoProfile=high-fps into every user's settings file,
+ * so changing the defaults never reached existing users. Reset both once, so Auto Mode never caps FPS
+ * or overrides Fortnite settings unless the user chooses it again.
+ */
+function migrateSettings(s: Settings): Settings {
+  // Check the raw file: read() fills missing fields from DEFAULT_SETTINGS, which already carry the new version.
+  const raw = settingsStore.readRaw() as Partial<Settings> | null;
+  if (!raw || (raw.settingsVersion ?? 1) >= 2) return s;
+  const m: Settings = { ...s, autoLock: false, autoProfile: 'keep', autoProfileChosen: false, recordMatches: false, settingsVersion: 2 };
+  try { settingsStore.write(m); } catch { /* keep in memory */ }
+  return m;
+}
 
 const pmPath = () => PresentMonCapture.resolve(settings.presentMonPath, process.resourcesPath ?? '');
 const hub = new MonitorHub({
@@ -74,6 +91,7 @@ const hub = new MonitorHub({
   onFortniteStop: () => void autoMode.run('after match'),
   pingHost: () => settings.livePingHost,
   isDx12: () => isDx12(),
+  recordMatches: () => settings.recordMatches,
 });
 const updater = new Updater((s) => win?.webContents.send(IPC.updateStatus, s));
 let autoMode: AutoMode;
@@ -307,6 +325,7 @@ function registerIpc() {
     settings = { ...settings, ...patch };
     settingsStore.write(settings);
     if (patch.monitorIntervalMs && patch.monitorIntervalMs !== prevInterval) hub.restart();
+    if (patch.recordMatches !== undefined) hub.restart();
     if (patch.autoMode === true || (settings.autoMode && (patch.autoProfile || patch.autoLock !== undefined || patch.autoLockTarget))) void autoMode.run(patch.autoMode ? 'turned on' : 'settings changed');
     return settings;
   });

@@ -46,7 +46,7 @@ export function FpsLock() {
         <Box k="Held 90% of the time" v={sess?.sustainedFps != null ? Math.round(sess.sustainedFps).toString() : null} />
         <Box k="Recommended lock" v={rec !== null ? rec.toString() : null} neon />
       </div>
-      {rec === null && <div className="mt-2 text-xs text-muted">{sess && sess.fpsSamples > 0 ? `Keep playing: ${need} more seconds of measured FPS needed.` : 'Play one match with FPS capture on (TWECD running as administrator) to get your personal recommendation.'}</div>}
+      {rec === null && <div className="mt-2 text-xs text-muted">{sess && sess.fpsSamples > 0 ? `Keep playing: ${need} more seconds of measured FPS needed.` : 'Turn on "Record every match" in Settings (TWECD as administrator) and play one match to get your personal recommendation.'}</div>}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button className="btn-primary px-6" disabled={disabled || rec === null} onClick={() => apply(rec!)}>

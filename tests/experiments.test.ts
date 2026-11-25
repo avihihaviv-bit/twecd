@@ -60,3 +60,50 @@ describe('Process scripts are built only from validated integers', () => {
     for (const e of EXPERIMENTS) { expect(e.revertStep.length).toBeGreaterThan(10); expect(e.what.length).toBeGreaterThan(20); }
   });
 });
+
+import { Ring } from '../electron/services/ring';
+import { PresentMonCapture } from '../electron/services/presentMon';
+import { computeFrameStats } from '../electron/services/frameStats';
+import { decideMode } from '../electron/services/monitor';
+
+describe('Low-overhead frame capture (regression: TWECD costing FPS)', () => {
+  it('ring buffer keeps the newest values in order', () => {
+    const r = new Ring(4);
+    [1, 2, 3, 4, 5, 6].forEach((v) => r.push(v));
+    expect(r.toArray()).toEqual([3, 4, 5, 6]);
+    expect(r.tail(2)).toEqual([5, 6]);
+    expect(r.mean()).toBe(4.5);
+  });
+  it('ring-based stats equal array-based stats on the same frames', () => {
+    const ft = Array.from({ length: 9000 }, (_, i) => 1.6 + (i % 37) * 0.01 + (i % 500 === 0 ? 12 : 0));
+    const r = new Ring(6000); ft.forEach((v) => r.push(v));
+    expect(computeFrameStats(r.toArray())).toEqual(computeFrameStats(ft.slice(-6000)));
+  });
+  it('pushing 100k frames is fast (per-frame work is O(1))', () => {
+    const pm = new PresentMonCapture(() => null);
+    const push = (pm as unknown as { push: (a: number, b: number | null, c: number | null) => void }).push.bind(pm);
+    const t0 = performance.now();
+    for (let i = 0; i < 100_000; i++) push(1.7, 1.2, 1.4);
+    expect(performance.now() - t0).toBeLessThan(150);
+  });
+  it('no in-game sampling when "Record every match" is off (trackWhileHidden gated by it)', () => {
+    expect(decideMode({ visible: true, focused: false, fortniteRunning: true, holding: false, trackWhileHidden: false })).toBe('idle');
+    expect(decideMode({ visible: true, focused: false, fortniteRunning: true, holding: true, trackWhileHidden: false })).toBe('game-light');
+  });
+});
+
+import { AutoMode } from '../electron/services/autoMode';
+describe('Auto Mode keeps the user\'s own Fortnite settings by default', () => {
+  const fakeOpt = { apply: async () => ({ results: [], backupSaved: true, restorePoint: null }), note: () => undefined } as never;
+  const base = { autoMode: true, autoLock: false, autoLockTarget: 500, autoProfile: 'high-fps', autoProfileChosen: false } as never;
+  it('does not apply a Fortnite profile when the user never picked one', async () => {
+    const st = await new AutoMode(fakeOpt, () => base, () => false, () => null, '/nonexistent', () => undefined).run('test');
+    expect(st.failed.join(' ')).not.toMatch(/Fortnite profile/);
+    expect(st.changed.join(' ')).not.toMatch(/Fortnite profile/);
+  });
+  it('applies the profile only when explicitly chosen', async () => {
+    const chosen = { ...(base as object), autoProfileChosen: true } as never;
+    const st = await new AutoMode(fakeOpt, () => chosen, () => false, () => null, '/nonexistent', () => undefined).run('test');
+    expect(st.failed.join(' ')).toMatch(/Fortnite profile/); // tried (file absent in the test environment)
+  });
+});

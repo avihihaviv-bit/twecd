@@ -235,11 +235,14 @@ export interface Settings {
   autoCheckUpdates: boolean;
   nvidiaChecklist: string[];
   autoMode: boolean;
-  autoProfile: FortniteProfileId;
+  autoProfile: FortniteProfileId | 'keep';
   autoLock: boolean;
   autoLockTarget: number;
   autoBoostApps: string[]; // exe names closed automatically when Fortnite starts
   expKeep: ExpId[]; // proven software experiments re-applied on every Fortnite launch
+  recordMatches: boolean; // PresentMon capture during normal play (off by default: it costs CPU)
+  autoProfileChosen: boolean; // false = the user never picked a profile, so Auto Mode keeps their own settings
+  settingsVersion: number;
 }
 
 export type FortniteProfileId = 'ultra' | 'competitive' | 'high-fps' | 'stability' | 'dx12';

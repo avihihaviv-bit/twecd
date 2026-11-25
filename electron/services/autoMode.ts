@@ -47,9 +47,13 @@ export class AutoMode {
       }
       if (!this.fortniteRunning()) {
         const sess = this.lastSession();
-        const prof = PROFILES[st.autoProfile];
-        const p = applyFortniteProfile(this.fortniteBackupDir, st.autoProfile, prof.needsCap ? sess?.recommendedCap ?? undefined : undefined);
-        if (p.ok && p.changed.length) changed.push(`Fortnite profile: ${prof.name}`); else if (!p.ok) failed.push(`Fortnite profile: ${p.message}`); else skipped++;
+        // Never override the user's own Fortnite settings unless they explicitly picked a profile for Auto Mode.
+        const profileId = st.autoProfileChosen && st.autoProfile !== 'keep' ? st.autoProfile : null;
+        if (profileId) {
+          const prof = PROFILES[profileId];
+          const p = applyFortniteProfile(this.fortniteBackupDir, profileId, prof.needsCap ? sess?.recommendedCap ?? undefined : undefined);
+          if (p.ok && p.changed.length) changed.push(`Fortnite profile: ${prof.name}`); else if (!p.ok) failed.push(`Fortnite profile: ${p.message}`); else skipped++;
+        }
         if (st.autoLock) {
           const c = chooseLock(sess, st.autoLockTarget, this.refreshHz());
           if (c) {

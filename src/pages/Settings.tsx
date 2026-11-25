@@ -46,6 +46,11 @@ export default function Settings() {
               <div className="flex items-center gap-2"><span className="label w-40">Update interval</span>
                 {[500, 1000, 2000].map((v) => <button key={v} onClick={() => patch({ monitorIntervalMs: v })} className={`chip border ${s.monitorIntervalMs === v ? 'border-neon/50 text-neon' : 'border-line text-muted'}`}>{v / 1000}s</button>)}
               </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-purple/30 bg-purple/[0.05] p-3">
+                <input id="record-matches" type="checkbox" className="mt-1 accent-[#B44CFF]" checked={s.recordMatches} onChange={(e) => patch({ recordMatches: e.target.checked })} />
+                <span><b className="text-white">Record every match</b> (FPS analysis, bottleneck report, auto-lock, Tuner)
+                  <span className="block text-xs text-muted">Off by default: frame capture runs on every frame and costs some CPU while you play. When off, TWECD measures only while you look at it, during Benchmarks and in the Experiments Lab.</span></span>
+              </label>
               <label className="flex cursor-pointer items-center gap-3">
                 <input type="checkbox" className="accent-[#39FF14]" checked={s.trackFortniteWhileMinimized} onChange={(e) => patch({ trackFortniteWhileMinimized: e.target.checked })} />
                 Keep recording Fortnite sessions while TWECD is minimized (light 2 s sampling)

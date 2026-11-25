@@ -4,7 +4,8 @@ import type { AutoModeStatus, FortniteProfileId, Settings } from '../../shared/t
 import { api, errMsg } from '../lib/api';
 import { Badge } from './ui';
 
-const PROFILES: { id: FortniteProfileId; name: string }[] = [
+const PROFILES: { id: FortniteProfileId | 'keep'; name: string }[] = [
+  { id: 'keep', name: 'Keep my current Fortnite settings' },
   { id: 'high-fps', name: 'High FPS' }, { id: 'ultra', name: 'Ultra FPS (CPU-bound)' }, { id: 'competitive', name: 'Competitive' }, { id: 'stability', name: 'Frame Time Stability' },
 ];
 
@@ -36,7 +37,7 @@ export function AutoModeCard({ compact }: { compact?: boolean }) {
         {!compact && s && (
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label className="flex items-center gap-2"><span className="label">Profile</span>
-              <select id="auto-profile" value={s.autoProfile} onChange={(e) => patch({ autoProfile: e.target.value as FortniteProfileId })} className="rounded-lg border border-purple/30 bg-black/50 px-2 py-1.5 text-white">{PROFILES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+              <select id="auto-profile" value={s.autoProfileChosen ? s.autoProfile : 'keep'} onChange={(e) => patch({ autoProfile: e.target.value as FortniteProfileId | 'keep', autoProfileChosen: true })} className="rounded-lg border border-purple/30 bg-black/50 px-2 py-1.5 text-white">{PROFILES.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             </label>
             <label className="flex items-center gap-2"><input id="auto-lock" type="checkbox" className="accent-[#B44CFF]" checked={s.autoLock} onChange={(e) => patch({ autoLock: e.target.checked })} /><span title="A lock is a ceiling: FPS can never go above it. It makes frame times flatter but lowers peak FPS.">Cap FPS for smoothness (limits max FPS) at</span>
               <select id="auto-lock-target" value={s.autoLockTarget} onChange={(e) => patch({ autoLockTarget: +e.target.value })} className="rounded-lg border border-purple/30 bg-black/50 px-2 py-1.5 text-white">{[240, 320, 360, 400, 450, 500, 600].map((v) => <option key={v} value={v}>{v} FPS</option>)}</select>

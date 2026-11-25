@@ -22,6 +22,7 @@ export interface HubOptions {
   emit: (m: LiveMetrics) => void;
   onFortniteStart?: (pid: number) => void;
   onFortniteStop?: () => void;
+  recordMatches: () => boolean;
 }
 
 export type HubMode = 'full' | 'game-light' | 'idle';
@@ -87,7 +88,7 @@ export class MonitorHub {
 
   private applyMode() {
     this.stopTimers();
-    this.mode = decideMode({ visible: this.visible, focused: this.focused, fortniteRunning: this.fortnite.running, holding: this.listeners.size > 0, trackWhileHidden: this.o.trackWhileHidden() });
+    this.mode = decideMode({ visible: this.visible, focused: this.focused, fortniteRunning: this.fortnite.running, holding: this.listeners.size > 0, trackWhileHidden: this.o.trackWhileHidden() && this.o.recordMatches() });
     if (this.mode === 'full') {
       const iv = this.o.intervalMs();
       this.gpu.restartAt(iv); this.pinger.start(2000);
@@ -103,6 +104,20 @@ export class MonitorHub {
       this.gpu.stop(); this.agent.stop(); this.pinger.stop();
       this.fnTimer = setInterval(() => void this.checkFortnite(), 10000);
     }
+    this.gateCapture();
+  }
+
+  private wantCapture = false;
+  /**
+   * PresentMon (ETW frame capture) costs CPU on every frame. It runs only when needed:
+   * while the user looks at TWECD, during benchmarks/experiments (holds), or when "Record every match" is on.
+   */
+  private gateCapture() {
+    const need = this.fortnite.running && (this.mode === 'full' || this.listeners.size > 0 || this.o.recordMatches());
+    if (need === this.wantCapture && (need === this.pm.running || !need)) return;
+    this.wantCapture = need;
+    if (need) this.pm.start(FORTNITE_EXE);
+    else this.pm.stop('Not recording while you play ("Record every match" is off in Settings)');
   }
 
   /** Benchmarks and scans hold the sampler on even when minimized. */
@@ -157,7 +172,6 @@ export class MonitorHub {
   private onFortniteStart() {
     try { if (this.fortnite.pid !== null) this.o.onFortniteStart?.(this.fortnite.pid); } catch { /* never block monitoring */ }
     this.pm.resetSession();
-    this.pm.start(FORTNITE_EXE);
     let dx12 = false; try { dx12 = this.o.isDx12(); } catch { /* unknown */ }
     this.session = { startedAt: Date.now(), endedAt: null, ticks: [], drops: [], dx12, bgAppsMB: null, lastBgCheck: 0 };
     this.applyMode();
@@ -165,6 +179,7 @@ export class MonitorHub {
 
   private onFortniteStop() {
     this.pm.stop();
+    this.wantCapture = false;
     if (this.session) { this.session.endedAt = Date.now(); this.lastSession = this.summary(this.session); }
     this.session = null;
     this.applyMode();
