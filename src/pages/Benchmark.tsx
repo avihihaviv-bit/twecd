@@ -34,7 +34,7 @@ const scen = (r: BenchmarkResult) => SCENARIOS.find((s) => s.id === r.scenario)?
 const name = (r: BenchmarkResult) => `${scen(r)} · ${r.label}${r.profile ? ` · ${PROFILE_NAMES[r.profile] ?? r.profile}` : ''} · ${new Date(r.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
 
 export default function Benchmark({ embedded }: { embedded?: boolean }) {
-  const { live } = useApp();
+  const { live, setBenchDoneAt } = useApp();
   const [list, setList] = useState<BenchmarkResult[]>([]);
   const [dur, setDur] = useState(60);
   const [scenario, setScenario] = useState<BenchScenario>('creative-freebuild');
@@ -46,7 +46,7 @@ export default function Benchmark({ embedded }: { embedded?: boolean }) {
 
   const run = async (label: string) => {
     setRunning(label); setErr(null); setProg({ elapsedSec: 0, durationSec: dur });
-    try { await api().benchRun({ label, durationSec: dur, pingHost: '1.1.1.1', scenario }); const l = await api().benchList(); setList(l); setA(l[1]?.id ?? ''); setB(l[0]?.id ?? ''); }
+    try { await api().benchRun({ label, durationSec: dur, pingHost: '1.1.1.1', scenario }); setBenchDoneAt(Date.now()); const l = await api().benchList(); setList(l); setA(l[1]?.id ?? ''); setB(l[0]?.id ?? ''); }
     catch (e) { setErr(errMsg(e)); } finally { setRunning(null); setProg(null); }
   };
   const A = useMemo(() => list.find((r) => r.id === aId) ?? list.find((r) => r.label === 'Before') ?? list[1], [list, aId]);

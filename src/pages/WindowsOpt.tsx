@@ -33,6 +33,24 @@ export default function WindowsOpt({ onBenchmark }: { onBenchmark: () => void })
     try { const r = await api().restore([id]); setMsg((m) => ({ ...m, [id]: { ok: r[0]?.status === 'success', text: r[0]?.message ?? 'Nothing to restore.' } })); await load(); } finally { setBusy(null); }
   };
 
+  const [allBusy, setAllBusy] = useState(false);
+  const [allMsg, setAllMsg] = useState<string | null>(null);
+  /** Items "Make everything green" applies: not optimal, need no extra picks, and allowed with the current rights. */
+  const greenable = (list ?? []).filter((s) => s.state === 'not-optimal' && s.id !== 'startup-apps-off' && !(s.needsAdmin && !info?.isAdmin));
+  const blocked = (list ?? []).filter((s) => s.state === 'not-optimal' && !greenable.includes(s));
+  const makeAllGreen = async () => {
+    if (!greenable.length) return;
+    const lines = greenable.map((s) => `- ${s.title}${s.rebootRequired ? '  (needs a PC restart)' : ''}`).join('\n');
+    if (!confirm(`Apply these ${greenable.length} optimizations?\n\n${lines}\n\nEach original value is saved; undo any of them here or in Restore & Backup.`)) return;
+    setAllBusy(true); setAllMsg(null);
+    try {
+      const r = await api().apply({ ids: greenable.map((s) => s.id) });
+      const ok = r.results.filter((x) => x.status === 'success' || x.status === 'skipped').length;
+      const bad = r.results.filter((x) => x.status === 'failed' || x.status === 'unavailable');
+      setAllMsg(`${ok} applied or already set${bad.length ? `. Not possible: ${bad.map((x) => `${x.title} (${x.message})`).join(' · ')}` : '.'}`);
+      await load();
+    } catch (e) { setAllMsg(errMsg(e)); } finally { setAllBusy(false); }
+  };
   const groups: OptStatus['area'][] = ['Fortnite', 'Windows', 'Graphics', 'Network'];
   const todo = list?.filter((s) => s.state === 'not-optimal').length ?? 0;
   return (
@@ -43,6 +61,18 @@ export default function WindowsOpt({ onBenchmark }: { onBenchmark: () => void })
         <div className="text-sm text-[#d9c6f5]"><b className="text-white">Recommended workflow:</b> run a Benchmark (same Fortnite scenario) → apply ONE item below → benchmark again → keep it only if the measured result is equal or better. {info && !info.isAdmin && <span className="text-warn">Some items need administrator rights: Settings &gt; Restart as administrator.</span>}</div>
         <button className="btn-primary" onClick={onBenchmark}>Open Benchmark</button>
       </div>
+      {list !== null && (
+        <div className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-neon/30 bg-neon/[0.04] p-4">
+          <button className="btn-go px-6 py-3 font-display text-sm tracking-[0.12em]" disabled={allBusy || !greenable.length} onClick={makeAllGreen}>
+            {allBusy ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />} MAKE EVERYTHING GREEN{greenable.length ? ` (${greenable.length})` : ''}
+          </button>
+          <div className="min-w-[260px] flex-1 text-sm text-[#cfc3e3]">
+            {list.every((x) => x.state === 'unavailable') ? 'These settings can only be changed on Windows.' : greenable.length ? 'Applies every item that is not optimal, in one click. All reversible.' : blocked.length ? 'Everything that can be applied automatically is already green.' : 'Everything is already green.'}
+            {blocked.length > 0 && <div className="text-xs text-muted">Needs you: {blocked.map((s) => `${s.title} (${s.id === 'startup-apps-off' ? 'tick the apps below' : 'run TWECD as administrator'})`).join(' · ')}</div>}
+            {allMsg && <div className="mt-1 text-neon2">{allMsg}</div>}
+          </div>
+        </div>
+      )}
       {list === null ? <div className="text-muted"><Loader2 className="mr-2 inline animate-spin" size={16} />Reading current settings...</div> : (
         <div className="space-y-6">
           <div className="text-sm text-muted">{list.every((x) => x.state === 'unavailable') ? 'These settings can only be read and changed on Windows.' : todo ? <><b className="text-lilac">{todo}</b> item{todo > 1 ? 's are' : ' is'} not optimal.</> : `Everything TWECD can check is optimal${list.some((x) => x.state === 'unknown') ? ' (items marked ? need administrator rights to read)' : ''}.`}</div>

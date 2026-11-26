@@ -18,7 +18,8 @@ const STEP_LABELS: [ScanStep['id'], string][] = [
 const initialSteps = (): ScanStep[] => STEP_LABELS.map(([id, label]) => ({ id, label, status: 'pending', summary: '' }));
 
 export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: () => void; onBenchmark: () => void; onLab: () => void }) {
-  const { boost, setBoost, live, info, history } = useApp();
+  const { boost, setBoost, live, info, history, benchDoneAt, setBenchDoneAt } = useApp();
+  const [appliedAt, setAppliedAt] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pids, setPids] = useState<Set<number>>(new Set());
   const [startupSel, setStartupSel] = useState<Set<string>>(new Set());
@@ -29,6 +30,7 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
 
   const start = async (mode: 'scan' | 'boost') => {
     setBoost(() => ({ phase: 'scanning', mode, steps: initialSteps(), result: null, applied: null, error: null }));
+    setAppliedAt(null); setBenchDoneAt(null);
     try {
       const result = await api().scan();
       setSelected(new Set(result.recommendations.filter((r) => r.selectedByDefault && r.optimizationId).map((r) => r.id)));
@@ -52,7 +54,7 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
     const summary = chosen.map((r) => `- ${r.title}${!r.reversible ? '  (cannot be undone)' : ''}${r.rebootRequired ? '  (needs a PC restart)' : ''}`).join('\n');
     if (!window.confirm(`Apply these ${ids.length} optimization(s)?\n\n${summary}${names.length ? `\n\nApps that will be closed (save your work first):\n${[...new Set(names)].join(', ')}` : ''}${startNames.length ? `\n\nStartup entries that will be disabled:\n${startNames.join(', ')}` : ''}\n\nOriginal settings are saved. Use "Restore Defaults" in Settings to undo.`)) return;
     setBoost((b) => ({ ...b, phase: 'applying' }));
-    try { const applied = await api().apply({ ids, pids: [...pids], startupNames: startNames }); setBoost((b) => ({ ...b, phase: 'done', applied })); }
+    try { const applied = await api().apply({ ids, pids: [...pids], startupNames: startNames }); setBoost((b) => ({ ...b, phase: 'done', applied })); setAppliedAt(Date.now()); }
     catch (e) { setBoost((b) => ({ ...b, phase: 'review', error: errMsg(e) })); }
   };
 
@@ -66,7 +68,12 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
     if (i === 3) { onBenchmark(); return; }
     document.getElementById(i === 1 ? 'tw-report' : 'tw-recs')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
-  const stage = boost.phase === 'idle' ? -1 : boost.phase === 'scanning' ? 0 : boost.phase === 'review' ? 1 : boost.phase === 'applying' ? 2 : 3;
+  // Completed step index: SCAN 0, ANALYZE 1, APPLY 2, BENCHMARK 3 (only after a benchmark ran after applying).
+  const stage = boost.phase === 'idle' ? -1 : boost.phase === 'scanning' ? 0 : boost.phase === 'review' || boost.phase === 'applying' ? 1
+    : benchDoneAt && appliedAt && benchDoneAt > appliedAt ? 3 : 2;
+  // "Select all safe": everything reversible that needs no extra picks (apps/startup entries) and no missing admin rights.
+  const safeSkip = (r: Recommendation) => r.optimizationId === 'close-background-apps' ? 'needs you to pick the apps' : r.optimizationId === 'startup-apps-off' ? 'needs you to pick the entries' : !r.reversible ? 'cannot be undone' : r.needsAdmin && !info?.isAdmin ? 'needs administrator rights' : null;
+  const finishWithoutChanges = () => { setBoost((b) => ({ ...b, phase: 'done', applied: { results: [], backupSaved: true, restorePoint: null } })); setAppliedAt(Date.now()); };
 
   const series = useMemo(() => ({
     fps: history.map((h) => h.fps), cpu: history.map((h) => h.cpu), gpu: history.map((h) => h.gpu), ram: history.map((h) => h.ram), ping: history.map((h) => h.ping),
@@ -126,7 +133,7 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
                 </span>
               ))}
             </div>
-            <div className="text-center text-xs text-muted">{stage < 0 ? 'Step 1: click MAX FPS or SCAN PC.' : stage === 0 ? 'Scanning...' : stage === 1 ? 'Next: scroll down to "Recommended optimizations" and click APPLY.' : stage === 2 ? 'Applying...' : 'Next: run a Benchmark in the same Fortnite scenario to measure the difference.'}</div>
+            <div className="text-center text-xs text-muted">{stage < 0 ? 'Step 1: click MAX FPS or SCAN PC.' : stage === 0 ? 'Scanning...' : stage === 1 && boost.phase === 'review' ? (actionable.length ? 'Next: scroll down to "Recommended optimizations" and click APPLY.' : 'Nothing needs changing: scroll down and click CONTINUE.') : boost.phase === 'applying' ? 'Applying...' : stage === 2 ? 'Next: run a Benchmark in the same Fortnite scenario to measure the difference.' : 'All steps done.'}</div>
             {launchMsg && <div className="text-center text-sm text-neon2">{launchMsg}</div>}
             {boost.error && <div className="rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-sm text-bad">{boost.error}</div>}
           </div>
@@ -181,7 +188,17 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
       )}
       {boost.result && (boost.phase === 'review' || boost.phase === 'applying') && (
         <Card id="tw-recs" title="Recommended optimizations" right={<span className="flex items-center gap-1 text-xs text-muted"><ShieldCheck size={14} className="text-neon" /> Safe, explained, reversible unless marked</span>}>
-          {actionable.length === 0 && <div className="mb-4 text-sm text-muted">{info?.isWindows ? 'No automatic changes needed: every setting TWECD can change is already optimal.' : 'Windows settings can only be checked and changed on Windows; nothing was changed.'}</div>}
+          {actionable.length === 0 && <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-neon/30 bg-neon/[0.04] p-4 text-sm"><span className="text-[#cfc3e3]">{info?.isWindows ? 'Everything TWECD can change is already optimal. Nothing to apply.' : 'Windows settings can only be checked and changed on Windows; nothing was changed.'}</span><button className="btn-go" onClick={finishWithoutChanges}>CONTINUE</button></div>}
+          {actionable.length > 0 && (() => {
+            const skipped = actionable.map((r) => [r, safeSkip(r)] as const).filter(([, why]) => why);
+            return (
+              <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
+                <button className="btn-primary !py-2" onClick={() => setSelected(new Set(actionable.filter((r) => !safeSkip(r)).map((r) => r.id)))}>SELECT ALL SAFE</button>
+                <button className="btn-ghost !py-2" onClick={() => setSelected(new Set())}>Clear</button>
+                {skipped.length > 0 && <span className="text-xs text-muted">Not auto-selected: {skipped.map(([r, why]) => `${r.title} (${why})`).join(' · ')}</span>}
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-2 gap-3">
             {actionable.map((r) => <RecRow key={r.id} r={r} checked={selected.has(r.id)} onToggle={() => setSelected((s) => { const n = new Set(s); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} pids={pids} setPids={setPids} startupSel={startupSel} setStartupSel={setStartupSel} />)}
           </div>
@@ -189,8 +206,8 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
           {manual.length > 0 && (<><div className="label mb-2 mt-6">Manual tips (TWECD does not change these)</div><div className="grid grid-cols-2 gap-3">{manual.map((r) => <RecRow key={r.id} r={r} manual />)}</div></>)}
           <div className="mt-6 flex items-center justify-between border-t border-line pt-5">
             <div className="text-sm text-muted">TWECD never promises a specific FPS gain. Benchmark before and after to measure the real difference.</div>
-            <button className="btn-primary px-10 py-3.5 font-display text-sm tracking-[0.15em]" disabled={!chosen.length || boost.phase === 'applying'} onClick={apply}>
-              {boost.phase === 'applying' ? <Loader2 className="animate-spin" size={18} /> : <Rocket size={18} />} APPLY {chosen.length || ''}
+            <button className="btn-primary px-10 py-3.5 font-display text-sm tracking-[0.15em]" disabled={!chosen.length || boost.phase === 'applying'} onClick={apply} title={!chosen.length ? 'Select at least one optimization' : ''}>
+              {boost.phase === 'applying' ? <Loader2 className="animate-spin" size={18} /> : <Rocket size={18} />} {chosen.length ? `APPLY ${chosen.length}` : actionable.length ? 'SELECT AT LEAST ONE' : 'NOTHING TO APPLY'}
             </button>
           </div>
         </Card>
@@ -198,6 +215,7 @@ export default function Dashboard({ onLaunch, onBenchmark, onLab }: { onLaunch: 
       {boost.phase === 'done' && boost.applied && (
         <Card title="Before / after report" right={<div className="flex gap-2"><Badge tone={boost.applied.backupSaved ? 'good' : 'warn'}>{boost.applied.backupSaved ? 'Original values saved' : 'Backup could not be saved'}</Badge>{boost.applied.restorePoint && <Badge tone={boost.applied.restorePoint.ok ? 'good' : 'muted'}>{boost.applied.restorePoint.ok ? 'Restore point OK' : 'No restore point'}</Badge>}</div>}>
           {boost.applied.restorePoint && <div className="mb-3 text-xs text-muted">System Restore: {boost.applied.restorePoint.message}</div>}
+          {boost.applied.results.length === 0 && <div className="mb-3 rounded-xl border border-neon/30 bg-neon/[0.04] p-3 text-sm text-neon2">No changes were needed: everything TWECD can change was already optimal.</div>}
           <table className="w-full text-sm">
             <thead><tr className="label text-left"><th className="pb-2">Optimization</th><th>Before</th><th>After</th><th>Verified</th><th>Status</th><th /></tr></thead>
             <tbody>{boost.applied.results.map((r) => (

@@ -15,6 +15,8 @@ interface Ctx {
   setBoost: (fn: (b: BoostState) => BoostState) => void;
   lastNet: NetTestResult | null;
   setLastNet: (r: NetTestResult) => void;
+  benchDoneAt: number | null; // last completed benchmark (for the BENCHMARK workflow step)
+  setBenchDoneAt: (t: number | null) => void;
   refreshInfo: () => void;
 }
 
@@ -27,6 +29,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [boost, setBoostState] = useState<BoostState>({ phase: 'idle', mode: 'boost', steps: [], result: null, applied: null, error: null });
   const [lastNet, setLastNet] = useState<NetTestResult | null>(null);
+  const [benchDoneAt, setBenchDoneAt] = useState<number | null>(null);
   const hist = useRef<HistoryPoint[]>([]);
 
   const refreshInfo = () => { if (hasBridge()) api().getStatic().then(setInfo).catch(() => undefined); };
@@ -45,7 +48,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { off(); document.removeEventListener('visibilitychange', vis); };
   }, []);
 
-  return <C.Provider value={{ info, live, history, boost, setBoost: setBoostState, lastNet, setLastNet, refreshInfo }}>{children}</C.Provider>;
+  return <C.Provider value={{ info, live, history, boost, setBoost: setBoostState, lastNet, setLastNet, benchDoneAt, setBenchDoneAt, refreshInfo }}>{children}</C.Provider>;
 }
 
 export const useApp = () => { const c = useContext(C); if (!c) throw new Error('no provider'); return c; };
